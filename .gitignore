@@ -1,0 +1,32 @@
+# C++ / CMake
+build/
+engine/build/
+*.o
+*.a
+*.so
+*.out
+compile_commands.json
+
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
+
+# Data (large ITCH files etc.)
+data/*
+!data/.gitkeep
+!data/README.md
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Claude Code local overrides
+.claude/settings.local.json
