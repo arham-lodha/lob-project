@@ -13,7 +13,7 @@ Layout: `include/` headers, `src/` sources, `tests/`, `benchmarks/`.
 
 **Machine:** Apple Silicon (10-core), 4 MiB L2 per core  
 **Build:** `cmake -DCMAKE_BUILD_TYPE=Release`, `-O3`  
-**Date:** 2026-06-04 — 30 repetitions each; raw output in `benchmarks/results/2026-06-04.txt`
+**Date:** 2026-06-05 — 30 repetitions each; raw output in `benchmarks/results/2026-06-05.txt`
 
 All times in ns (CPU time). p50/p95/p99 are across benchmark runs (run-to-run variance), not individual ops.
 
@@ -22,18 +22,18 @@ All times in ns (CPU time). p50/p95/p99 are across benchmark runs (run-to-run va
 ```
 Benchmark              median     p95      p99     stddev    cv
 --------------------------------------------------------------
-AddLimitBuyNoFill        27.1    30.9     34.8      3.33   11.8%
-FullFillOneLevel          129     130      130      0.35    0.3%
-SweepLevels/1             846     853      854      3.97    0.5%
-SweepLevels/4             992    1021     1089      82.7    8.1%
-SweepLevels/16           1669    1676     1677      3.85    0.2%
-SweepLevels/64           4503    4526     4527      13.7    0.3%
-CancelById/1              845     858      860      5.81    0.7%
-CancelById/16            1473    1487     1487      5.34    0.4%
-CancelById/256          11366   11548    11551      73.9    0.6%
-SteadyState/4            45.3    45.5     45.5      0.08    0.2%
-SteadyState/16           61.2    61.3     61.3      0.11    0.2%
-SteadyState/64           90.2    91.2     92.2      0.82    0.9%
+AddLimitBuyNoFill        27.8    35.5     36.5      3.04   10.5%
+FullFillOneLevel          129     130      130      0.31    0.2%
+SweepLevels/1            76.3    76.8     76.8      0.24    0.3%
+SweepLevels/4             279     281      285      1.55    0.6%
+SweepLevels/16           1110    1117     1120      4.34    0.4%
+SweepLevels/64           4497    4523     4524      16.5    0.4%
+CancelById/1          829 (†)     834      835      3.03    0.4%
+CancelById/16             110     110      111      0.38    0.4%
+CancelById/256           85.4    85.7     85.7      0.36    0.4%
+SteadyState/4            45.6    45.8     45.8      0.11    0.2%
+SteadyState/16           61.0    61.2     61.2      0.08    0.1%
+SteadyState/64           89.5    89.8     89.8      0.24    0.3%
 ```
 
 #### FastBook
@@ -41,37 +41,39 @@ SteadyState/64           90.2    91.2     92.2      0.82    0.9%
 ```
 Benchmark              median     p95      p99     stddev    cv
 --------------------------------------------------------------
-AddLimitBuyNoFill        42.2    42.8     42.9      0.25    0.6%
-FullFillOneLevel         64.9    65.5     65.7      0.24    0.4%
-SweepLevels/1             820     823      830      3.97    0.5%
-SweepLevels/4             951     957      959      3.15    0.3%
-SweepLevels/16           1375    1383     1384      4.93    0.4%
-SweepLevels/64           3105    3132     3144      16.2    0.5%
-CancelById/1              799     804      806      2.67    0.3%
-CancelById/16             811     820      821      5.29    0.7%
-CancelById/256            819     827      833      7.46    0.9%
-SteadyState/4            55.2    55.6     55.8      0.25    0.5%
-SteadyState/16           55.2    55.5     55.6      0.21    0.4%
-SteadyState/64           55.4    55.5     55.5      0.15    0.3%
+AddLimitBuyNoFill        42.2    42.2     42.3      0.04    0.1%
+FullFillOneLevel         65.0    65.3     65.3      0.12    0.2%
+SweepLevels/1            46.1    46.4     46.4      0.14    0.3%
+SweepLevels/4             163     164      164      0.40    0.2%
+SweepLevels/16            616     619      619      1.48    0.2%
+SweepLevels/64           2427    2438     2439      6.15    0.3%
+CancelById/1          804 (†)     807      807      2.75    0.3%
+CancelById/16            78.3    78.7     78.8      0.22    0.3%
+CancelById/256           31.9    31.9     31.9      0.07    0.2%
+SteadyState/4            55.1    55.3     55.4      0.12    0.2%
+SteadyState/16           55.1    55.3     55.4      0.14    0.2%
+SteadyState/64           55.3    55.4     55.4      0.12    0.2%
 ```
+
+† CancelById/1 times are dominated by `PauseTiming`/`ResumeTiming` overhead (~800 ns per call on Apple Silicon's 24 MHz system timer). The batch size is 1, so overhead is per-op and the actual cancel cost is not measurable with this methodology. CancelById/16 and /256 have meaningful signal.
 
 #### Summary (median speedup)
 
 ```
 Benchmark              RefBook   FastBook   Speedup
 ---------------------------------------------------
-AddLimitBuyNoFill         27.1       42.2    0.64x
-FullFillOneLevel           129       64.9    1.99x
-SweepLevels/1             846        820    1.03x
-SweepLevels/4             992        951    1.04x
-SweepLevels/16           1669       1375    1.21x
-SweepLevels/64           4503       3105    1.45x
-CancelById/1              845        799    1.06x
-CancelById/16            1473        811    1.82x
-CancelById/256          11366        819   13.87x
-SteadyState/4            45.3       55.2    0.82x
-SteadyState/16           61.2       55.2    1.11x
-SteadyState/64           90.2       55.4    1.63x
+AddLimitBuyNoFill         27.8       42.2    0.66x
+FullFillOneLevel           129       65.0    1.98x
+SweepLevels/1            76.3       46.1    1.65x
+SweepLevels/4             279        163    1.71x
+SweepLevels/16           1110        616    1.80x
+SweepLevels/64           4497       2427    1.85x
+CancelById/1          829 (†)   804 (†)      n/a
+CancelById/16             110       78.3    1.40x
+CancelById/256           85.4       31.9    2.68x
+SteadyState/4            45.6       55.1    0.83x
+SteadyState/16           61.0       55.1    1.11x
+SteadyState/64           89.5       55.3    1.62x
 ```
 
 ### Benchmark descriptions
@@ -86,15 +88,15 @@ SteadyState/64           90.2       55.4    1.63x
 
 ### Notes
 
-**CancelById** is the headline result: FastBook is flat at ~800 ns across all depths, confirming O(1) cancel via hash map + intrusive list pointer splice. RefBook degrades to 11 µs at depth 256 due to O(N) linear scan of the per-level vector.
+**SweepLevels** is FastBook's clearest win on this benchmark design: 1.65x at depth 1, growing to 1.85x at depth 64. The gain is consistent because the batch design amortizes `PauseTiming` overhead across BATCH operations, isolating the actual sweep cost. FastBook avoids `std::map` traversal (O(log N) per level hop) by using a flat array + hierarchical bitset for O(1) next-level lookup. Per-fill cost: FastBook ~43 ns/fill, RefBook ~68 ns/fill — structural, not depth-dependent.
+
+**CancelById/1** is not meaningful for either implementation: the `PauseTiming`/`ResumeTiming` pair costs ~800 ns on Apple Silicon's 24 MHz system timer, and with batch size 1 this overhead is per-operation. At depth=16 and depth=256 the overhead is amortized (50 ns/op and 3 ns/op respectively) and the real cancel cost emerges. FastBook is 1.40x faster at depth 16 and 2.68x at depth 256, confirming O(1) cancel (hash map lookup + pointer splice) vs. RefBook's O(log N) map lookup.
 
 **FullFillOneLevel** is 2x faster from pool recycling — no allocation on the hot path.
 
-**SweepLevels** gains widen with depth (1.47x at /64) as RefBook pays `std::map` traversal cost per level.
+**AddLimitBuyNoFill** is ~52% slower. Both books pay the same `unordered_map` insert cost; FastBook additionally maintains the intrusive linked list (4–5 pointer writes per insert) and the hierarchical bitset. This is the structural trade-off: the list enables O(1) cancel and fill traversal at the cost of slightly more expensive pure inserts.
 
-**AddLimitBuyNoFill** is ~16% slower. Both books pay the same `unordered_map` insert cost; FastBook additionally maintains the intrusive linked list (4–5 pointer writes per insert) and the hierarchical bitset. This is the structural trade-off: the list enables O(1) cancel and fill traversal at the cost of slightly more expensive pure inserts.
-
-**SteadyState/4** regresses ~18%. At tiny depth RefBook's cached `std::map` lookup edges out the hash map + free list overhead. The crossover is at depth 16, and FastBook leads by 1.61x at depth 64.
+**SteadyState/4** regresses ~21%. At tiny depth RefBook's cached `std::map` lookup edges out the hash map + free list overhead. The crossover is at depth 16, and FastBook leads by 1.62x at depth 64. FastBook's SteadyState is depth-invariant at ~55 ns because the cancel + add cost doesn't scale with book size (O(1) everything). RefBook's 45→61→90 ns growth reflects increasing `std::map` node cache pressure.
 
 ### Reproduce
 

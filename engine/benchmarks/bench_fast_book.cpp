@@ -62,23 +62,30 @@ BENCHMARK(BM_FastBook_FullFillOneLevel)
     ->ReportAggregatesOnly(true);
 
 // Incoming buy sweeps N resting sell levels. Parameterised by depth.
+// Uses KeepRunningBatch to amortize PauseTiming overhead across BATCH operations.
+// Price space is split into BATCH non-overlapping bands of depth prices each.
 static void BM_FastBook_SweepLevels(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
-    FastBook book(&listener, MIN_P, MAX_P, TICK, depth + 1);
+    const int BATCH = (MAX_P.price - 100) / depth;
+    FastBook book(&listener, MIN_P, MAX_P, TICK, BATCH * depth);
     OrderId id = 1;
 
-    for (auto _ : state) {
+    while (state.KeepRunningBatch(BATCH)) {
         state.PauseTiming();
-        for (int i = 0; i < depth; ++i) {
-            OrderId oid = id++;
-            book.add(Order(oid, Price(100 + i), SequenceNumber(oid), Quantity(10), Side::SELL));
+        for (int b = 0; b < BATCH; ++b) {
+            for (int i = 0; i < depth; ++i) {
+                OrderId oid = id++;
+                book.add(Order(oid, Price(100 + b * depth + i),
+                               SequenceNumber(oid), Quantity(10), Side::SELL));
+            }
         }
         state.ResumeTiming();
-
-        OrderId oid = id++;
-        book.add(Order(oid, Price(100 + depth - 1), SequenceNumber(oid),
-                       Quantity(10 * depth), Side::BUY));
+        for (int b = 0; b < BATCH; ++b) {
+            OrderId oid = id++;
+            book.add(Order(oid, Price(100 + b * depth + depth - 1),
+                           SequenceNumber(oid), Quantity(10 * depth), Side::BUY));
+        }
     }
 }
 BENCHMARK(BM_FastBook_SweepLevels)
@@ -90,26 +97,24 @@ BENCHMARK(BM_FastBook_SweepLevels)
     ->ReportAggregatesOnly(true);
 
 // Cancel an order by ID from a book with N resting orders.
+// Each batch pre-loads depth orders (paused) then cancels all depth (timed).
+// Setup:timed ratio is ~1:1 at all depths, keeping total runtime proportional to min_time.
 static void BM_FastBook_CancelById(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
     FastBook book(&listener, MIN_P, MAX_P, TICK, depth);
     OrderId id = 1;
-    OrderId batch_start = 0;
 
-    for (auto _ : state) {
+    while (state.KeepRunningBatch(depth)) {
         state.PauseTiming();
-        for (int i = 0; i < depth - 1; ++i)
-            book.cancel(batch_start + i);
-        batch_start = id;
+        OrderId cancel_start = id;
         for (int i = 0; i < depth; ++i) {
             OrderId oid = id++;
             book.add(Order(oid, Price(100 + i), SequenceNumber(oid), Quantity(10), Side::BUY));
         }
-        OrderId target = id - 1;
         state.ResumeTiming();
-
-        book.cancel(target);
+        for (int i = 0; i < depth; ++i)
+            book.cancel(cancel_start + i);
     }
 }
 BENCHMARK(BM_FastBook_CancelById)

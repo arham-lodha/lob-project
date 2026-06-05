@@ -52,24 +52,30 @@ BENCHMARK(BM_FullFillOneLevel)
     ->ReportAggregatesOnly(true);
 
 // Incoming buy sweeps N resting sell levels. Parameterised by depth.
+// Uses KeepRunningBatch to amortize PauseTiming overhead across BATCH operations.
+// Price space is split into BATCH non-overlapping bands of depth prices each.
 static void BM_SweepLevels(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
+    const int BATCH = (10000 - 100) / depth;
+    lob::RefBook book(&listener);
     lob::OrderId id = 1;
 
-    for (auto _ : state) {
+    while (state.KeepRunningBatch(BATCH)) {
         state.PauseTiming();
-        lob::RefBook book(&listener);
-        for (int i = 0; i < depth; ++i) {
-            lob::OrderId oid = id++;
-            book.add(lob::Order(oid, lob::Price(100 + i), lob::SequenceNumber(oid),
-                                lob::Quantity(10), lob::Side::SELL));
+        for (int b = 0; b < BATCH; ++b) {
+            for (int i = 0; i < depth; ++i) {
+                lob::OrderId oid = id++;
+                book.add(lob::Order(oid, lob::Price(100 + b * depth + i),
+                                    lob::SequenceNumber(oid), lob::Quantity(10), lob::Side::SELL));
+            }
         }
         state.ResumeTiming();
-
-        lob::OrderId oid = id++;
-        book.add(lob::Order(oid, lob::Price(100 + depth - 1),
-                            lob::SequenceNumber(oid), lob::Quantity(10 * depth), lob::Side::BUY));
+        for (int b = 0; b < BATCH; ++b) {
+            lob::OrderId oid = id++;
+            book.add(lob::Order(oid, lob::Price(100 + b * depth + depth - 1),
+                                lob::SequenceNumber(oid), lob::Quantity(10 * depth), lob::Side::BUY));
+        }
     }
 }
 BENCHMARK(BM_SweepLevels)
@@ -81,23 +87,25 @@ BENCHMARK(BM_SweepLevels)
     ->ReportAggregatesOnly(true);
 
 // Cancel an order by ID from a book with N resting orders.
+// Each batch pre-loads depth orders (paused) then cancels all depth (timed).
+// Setup:timed ratio is ~1:1 at all depths, keeping total runtime proportional to min_time.
 static void BM_CancelById(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
+    lob::RefBook book(&listener);
     lob::OrderId id = 1;
 
-    for (auto _ : state) {
+    while (state.KeepRunningBatch(depth)) {
         state.PauseTiming();
-        lob::RefBook book(&listener);
+        lob::OrderId cancel_start = id;
         for (int i = 0; i < depth; ++i) {
             lob::OrderId oid = id++;
             book.add(lob::Order(oid, lob::Price(100 + i), lob::SequenceNumber(oid),
                                 lob::Quantity(10), lob::Side::BUY));
         }
-        lob::OrderId target = id - 1;
         state.ResumeTiming();
-
-        book.cancel(target);
+        for (int i = 0; i < depth; ++i)
+            book.cancel(cancel_start + i);
     }
 }
 BENCHMARK(BM_CancelById)
