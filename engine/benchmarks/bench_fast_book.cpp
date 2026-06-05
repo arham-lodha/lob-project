@@ -1,6 +1,7 @@
 #include "event_listener.hpp"
 #include "fast_book.hpp"
 #include "types.h"
+#include "bench_helpers.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {
@@ -35,7 +36,12 @@ static void BM_FastBook_AddLimitBuyNoFill(benchmark::State &state) {
         }
     }
 }
-BENCHMARK(BM_FastBook_AddLimitBuyNoFill);
+BENCHMARK(BM_FastBook_AddLimitBuyNoFill)
+    ->Repetitions(30)
+    ->ComputeStatistics("p50", bench::percentile<50>)
+    ->ComputeStatistics("p95", bench::percentile<95>)
+    ->ComputeStatistics("p99", bench::percentile<99>)
+    ->ReportAggregatesOnly(true);
 
 // Each iteration adds a matching buy+sell pair — one fill, pool slot recycles.
 static void BM_FastBook_FullFillOneLevel(benchmark::State &state) {
@@ -48,7 +54,12 @@ static void BM_FastBook_FullFillOneLevel(benchmark::State &state) {
         id += 2;
     }
 }
-BENCHMARK(BM_FastBook_FullFillOneLevel);
+BENCHMARK(BM_FastBook_FullFillOneLevel)
+    ->Repetitions(30)
+    ->ComputeStatistics("p50", bench::percentile<50>)
+    ->ComputeStatistics("p95", bench::percentile<95>)
+    ->ComputeStatistics("p99", bench::percentile<99>)
+    ->ReportAggregatesOnly(true);
 
 // Incoming buy sweeps N resting sell levels. Parameterised by depth.
 static void BM_FastBook_SweepLevels(benchmark::State &state) {
@@ -70,7 +81,13 @@ static void BM_FastBook_SweepLevels(benchmark::State &state) {
                        Quantity(10 * depth), Side::BUY));
     }
 }
-BENCHMARK(BM_FastBook_SweepLevels)->Arg(1)->Arg(4)->Arg(16)->Arg(64);
+BENCHMARK(BM_FastBook_SweepLevels)
+    ->Arg(1)->Arg(4)->Arg(16)->Arg(64)
+    ->Repetitions(30)
+    ->ComputeStatistics("p50", bench::percentile<50>)
+    ->ComputeStatistics("p95", bench::percentile<95>)
+    ->ComputeStatistics("p99", bench::percentile<99>)
+    ->ReportAggregatesOnly(true);
 
 // Cancel an order by ID from a book with N resting orders.
 static void BM_FastBook_CancelById(benchmark::State &state) {
@@ -78,27 +95,30 @@ static void BM_FastBook_CancelById(benchmark::State &state) {
     const int depth = state.range(0);
     FastBook book(&listener, MIN_P, MAX_P, TICK, depth);
     OrderId id = 1;
-    OrderId batch_start = 0; // tracks first ID of the previous batch
+    OrderId batch_start = 0;
 
     for (auto _ : state) {
         state.PauseTiming();
-        // Cancel survivors from the previous batch (all but the one already cancelled).
-        // On the first iteration batch_start == 0 so this loop is skipped.
         for (int i = 0; i < depth - 1; ++i)
             book.cancel(batch_start + i);
-
         batch_start = id;
         for (int i = 0; i < depth; ++i) {
             OrderId oid = id++;
             book.add(Order(oid, Price(100 + i), SequenceNumber(oid), Quantity(10), Side::BUY));
         }
-        OrderId target = id - 1; // cancel the last-added order
+        OrderId target = id - 1;
         state.ResumeTiming();
 
         book.cancel(target);
     }
 }
-BENCHMARK(BM_FastBook_CancelById)->Arg(1)->Arg(16)->Arg(256);
+BENCHMARK(BM_FastBook_CancelById)
+    ->Arg(1)->Arg(16)->Arg(256)
+    ->Repetitions(30)
+    ->ComputeStatistics("p50", bench::percentile<50>)
+    ->ComputeStatistics("p95", bench::percentile<95>)
+    ->ComputeStatistics("p99", bench::percentile<99>)
+    ->ReportAggregatesOnly(true);
 
 // Steady-state: fixed-depth two-sided book, alternating cancel+replace each iteration.
 static void BM_FastBook_SteadyState(benchmark::State &state) {
@@ -122,6 +142,12 @@ static void BM_FastBook_SteadyState(benchmark::State &state) {
         ++cancel_id;
     }
 }
-BENCHMARK(BM_FastBook_SteadyState)->Arg(4)->Arg(16)->Arg(64);
+BENCHMARK(BM_FastBook_SteadyState)
+    ->Arg(4)->Arg(16)->Arg(64)
+    ->Repetitions(30)
+    ->ComputeStatistics("p50", bench::percentile<50>)
+    ->ComputeStatistics("p95", bench::percentile<95>)
+    ->ComputeStatistics("p99", bench::percentile<99>)
+    ->ReportAggregatesOnly(true);
 
 } // namespace

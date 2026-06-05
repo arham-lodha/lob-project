@@ -13,23 +13,65 @@ Layout: `include/` headers, `src/` sources, `tests/`, `benchmarks/`.
 
 **Machine:** Apple Silicon (10-core), 4 MiB L2 per core  
 **Build:** `cmake -DCMAKE_BUILD_TYPE=Release`, `-O3`  
-**Date:** 2026-06-04
+**Date:** 2026-06-04 — 30 repetitions each; raw output in `benchmarks/results/2026-06-04.txt`
+
+All times in ns (CPU time). p50/p95/p99 are across benchmark runs (run-to-run variance), not individual ops.
+
+#### RefBook
 
 ```
-Benchmark                    RefBook (ns)   FastBook (ns)   Speedup
------------------------------------------------------------------
-AddLimitBuyNoFill                    37              43      0.86x
-FullFillOneLevel                    130              65      2.00x
-SweepLevels/1                       850             818      1.04x
-SweepLevels/4                      1014             955      1.06x
-SweepLevels/16                     1712            1372      1.25x
-SweepLevels/64                     4568            3103      1.47x
-CancelById/1                        853             791      1.08x
-CancelById/16                      1482             791      1.87x
-CancelById/256                    11183             806     13.87x
-SteadyState/4                      45.8            56.2      0.82x
-SteadyState/16                     62.9            57.4      1.10x
-SteadyState/64                     90.4            56.2      1.61x
+Benchmark              median     p95      p99     stddev    cv
+--------------------------------------------------------------
+AddLimitBuyNoFill        27.1    30.9     34.8      3.33   11.8%
+FullFillOneLevel          129     130      130      0.35    0.3%
+SweepLevels/1             846     853      854      3.97    0.5%
+SweepLevels/4             992    1021     1089      82.7    8.1%
+SweepLevels/16           1669    1676     1677      3.85    0.2%
+SweepLevels/64           4503    4526     4527      13.7    0.3%
+CancelById/1              845     858      860      5.81    0.7%
+CancelById/16            1473    1487     1487      5.34    0.4%
+CancelById/256          11366   11548    11551      73.9    0.6%
+SteadyState/4            45.3    45.5     45.5      0.08    0.2%
+SteadyState/16           61.2    61.3     61.3      0.11    0.2%
+SteadyState/64           90.2    91.2     92.2      0.82    0.9%
+```
+
+#### FastBook
+
+```
+Benchmark              median     p95      p99     stddev    cv
+--------------------------------------------------------------
+AddLimitBuyNoFill        42.2    42.8     42.9      0.25    0.6%
+FullFillOneLevel         64.9    65.5     65.7      0.24    0.4%
+SweepLevels/1             820     823      830      3.97    0.5%
+SweepLevels/4             951     957      959      3.15    0.3%
+SweepLevels/16           1375    1383     1384      4.93    0.4%
+SweepLevels/64           3105    3132     3144      16.2    0.5%
+CancelById/1              799     804      806      2.67    0.3%
+CancelById/16             811     820      821      5.29    0.7%
+CancelById/256            819     827      833      7.46    0.9%
+SteadyState/4            55.2    55.6     55.8      0.25    0.5%
+SteadyState/16           55.2    55.5     55.6      0.21    0.4%
+SteadyState/64           55.4    55.5     55.5      0.15    0.3%
+```
+
+#### Summary (median speedup)
+
+```
+Benchmark              RefBook   FastBook   Speedup
+---------------------------------------------------
+AddLimitBuyNoFill         27.1       42.2    0.64x
+FullFillOneLevel           129       64.9    1.99x
+SweepLevels/1             846        820    1.03x
+SweepLevels/4             992        951    1.04x
+SweepLevels/16           1669       1375    1.21x
+SweepLevels/64           4503       3105    1.45x
+CancelById/1              845        799    1.06x
+CancelById/16            1473        811    1.82x
+CancelById/256          11366        819   13.87x
+SteadyState/4            45.3       55.2    0.82x
+SteadyState/16           61.2       55.2    1.11x
+SteadyState/64           90.2       55.4    1.63x
 ```
 
 ### Benchmark descriptions
