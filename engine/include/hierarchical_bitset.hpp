@@ -19,7 +19,9 @@ public:
 
 private:
   size_t num_bits_;
-  std::vector<std::vector<uint64_t>> levels_; // levels_[0]=bottom, levels_.back()=top
+  uint8_t num_tiers_;
+  uint32_t tier_offsets_[4]; // start index in words_ for each tier
+  std::vector<uint64_t> words_; // flat layout: [tier0][tier1][tier2][tier3]
 };
 
 } // namespace lob

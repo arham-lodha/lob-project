@@ -1,0 +1,204 @@
+Unable to determine clock rate from sysctl: hw.cpufrequency: No such file or directory
+This does not affect benchmark measurements, only the metadata output.
+***WARNING*** Failed to set thread affinity. Estimated CPU frequency may be incorrect.
+2026-06-07T08:58:45-05:00
+Running /Users/arhamlodha/Projects/Dev/lob-project/engine/build/lob_bench
+Run on (10 X 24 MHz CPU s)
+CPU Caches:
+  L1 Data 64 KiB
+  L1 Instruction 128 KiB
+  L2 Unified 4096 KiB (x10)
+Load Average: 3.07, 5.34, 5.58
+------------------------------------------------------------------------------------------
+Benchmark                                                Time             CPU   Iterations
+------------------------------------------------------------------------------------------
+BM_AddLimitBuyNoFill/repeats:30_mean                  29.4 ns         28.6 ns           30
+BM_AddLimitBuyNoFill/repeats:30_median                27.1 ns         27.1 ns           30
+BM_AddLimitBuyNoFill/repeats:30_stddev                7.86 ns         5.83 ns           30
+BM_AddLimitBuyNoFill/repeats:30_cv                   26.72 %         20.37 %            30
+BM_AddLimitBuyNoFill/repeats:30_p50                   27.1 ns         27.0 ns           30
+BM_AddLimitBuyNoFill/repeats:30_p95                   43.2 ns         38.6 ns           30
+BM_AddLimitBuyNoFill/repeats:30_p99                   46.6 ns         40.5 ns           30
+BM_FullFillOneLevel/repeats:30_mean                    130 ns          130 ns           30
+BM_FullFillOneLevel/repeats:30_median                  130 ns          130 ns           30
+BM_FullFillOneLevel/repeats:30_stddev                0.699 ns        0.369 ns           30
+BM_FullFillOneLevel/repeats:30_cv                     0.54 %          0.28 %            30
+BM_FullFillOneLevel/repeats:30_p50                     130 ns          130 ns           30
+BM_FullFillOneLevel/repeats:30_p95                     130 ns          130 ns           30
+BM_FullFillOneLevel/repeats:30_p99                     131 ns          130 ns           30
+BM_SweepLevels/1/repeats:30_mean                      76.2 ns         76.1 ns           30
+BM_SweepLevels/1/repeats:30_median                    76.0 ns         75.9 ns           30
+BM_SweepLevels/1/repeats:30_stddev                   0.788 ns        0.723 ns           30
+BM_SweepLevels/1/repeats:30_cv                        1.03 %          0.95 %            30
+BM_SweepLevels/1/repeats:30_p50                       76.0 ns         75.9 ns           30
+BM_SweepLevels/1/repeats:30_p95                       76.5 ns         76.3 ns           30
+BM_SweepLevels/1/repeats:30_p99                       77.8 ns         76.6 ns           30
+BM_SweepLevels/4/repeats:30_mean                       278 ns          277 ns           30
+BM_SweepLevels/4/repeats:30_median                     278 ns          277 ns           30
+BM_SweepLevels/4/repeats:30_stddev                    1.74 ns         1.17 ns           30
+BM_SweepLevels/4/repeats:30_cv                        0.63 %          0.42 %            30
+BM_SweepLevels/4/repeats:30_p50                        278 ns          277 ns           30
+BM_SweepLevels/4/repeats:30_p95                        281 ns          279 ns           30
+BM_SweepLevels/4/repeats:30_p99                        283 ns          280 ns           30
+BM_SweepLevels/16/repeats:30_mean                     1105 ns         1100 ns           30
+BM_SweepLevels/16/repeats:30_median                   1100 ns         1098 ns           30
+BM_SweepLevels/16/repeats:30_stddev                   21.1 ns         8.00 ns           30
+BM_SweepLevels/16/repeats:30_cv                       1.91 %          0.73 %            30
+BM_SweepLevels/16/repeats:30_p50                      1100 ns         1098 ns           30
+BM_SweepLevels/16/repeats:30_p95                      1114 ns         1107 ns           30
+BM_SweepLevels/16/repeats:30_p99                      1122 ns         1114 ns           30
+BM_SweepLevels/64/repeats:30_mean                     4466 ns         4449 ns           30
+BM_SweepLevels/64/repeats:30_median                   4466 ns         4454 ns           30
+BM_SweepLevels/64/repeats:30_stddev                   48.8 ns         27.5 ns           30
+BM_SweepLevels/64/repeats:30_cv                       1.09 %          0.62 %            30
+BM_SweepLevels/64/repeats:30_p50                      4465 ns         4454 ns           30
+BM_SweepLevels/64/repeats:30_p95                      4514 ns         4479 ns           30
+BM_SweepLevels/64/repeats:30_p99                      4599 ns         4481 ns           30
+BM_CancelById/1/repeats:30_mean                        831 ns          831 ns           30
+BM_CancelById/1/repeats:30_median                      829 ns          830 ns           30
+BM_CancelById/1/repeats:30_stddev                     9.50 ns         4.10 ns           30
+BM_CancelById/1/repeats:30_cv                         1.14 %          0.49 %            30
+BM_CancelById/1/repeats:30_p50                         829 ns          830 ns           30
+BM_CancelById/1/repeats:30_p95                         832 ns          834 ns           30
+BM_CancelById/1/repeats:30_p99                         861 ns          840 ns           30
+BM_CancelById/16/repeats:30_mean                       113 ns          112 ns           30
+BM_CancelById/16/repeats:30_median                     112 ns          111 ns           30
+BM_CancelById/16/repeats:30_stddev                    8.05 ns         1.13 ns           30
+BM_CancelById/16/repeats:30_cv                        7.10 %          1.01 %            30
+BM_CancelById/16/repeats:30_p50                        112 ns          111 ns           30
+BM_CancelById/16/repeats:30_p95                        116 ns          113 ns           30
+BM_CancelById/16/repeats:30_p99                        122 ns          114 ns           30
+BM_CancelById/256/repeats:30_mean                     86.3 ns         85.7 ns           30
+BM_CancelById/256/repeats:30_median                   85.8 ns         85.6 ns           30
+BM_CancelById/256/repeats:30_stddev                   1.28 ns        0.546 ns           30
+BM_CancelById/256/repeats:30_cv                       1.49 %          0.64 %            30
+BM_CancelById/256/repeats:30_p50                      85.8 ns         85.5 ns           30
+BM_CancelById/256/repeats:30_p95                      88.7 ns         86.5 ns           30
+BM_CancelById/256/repeats:30_p99                      88.7 ns         86.7 ns           30
+BM_SteadyState/4/repeats:30_mean                      46.1 ns         45.9 ns           30
+BM_SteadyState/4/repeats:30_median                    46.0 ns         45.9 ns           30
+BM_SteadyState/4/repeats:30_stddev                   0.251 ns        0.157 ns           30
+BM_SteadyState/4/repeats:30_cv                        0.54 %          0.34 %            30
+BM_SteadyState/4/repeats:30_p50                       46.0 ns         45.9 ns           30
+BM_SteadyState/4/repeats:30_p95                       46.3 ns         46.1 ns           30
+BM_SteadyState/4/repeats:30_p99                       46.8 ns         46.1 ns           30
+BM_SteadyState/16/repeats:30_mean                     68.3 ns         67.9 ns           30
+BM_SteadyState/16/repeats:30_median                   68.1 ns         67.9 ns           30
+BM_SteadyState/16/repeats:30_stddev                  0.748 ns        0.238 ns           30
+BM_SteadyState/16/repeats:30_cv                       1.09 %          0.35 %            30
+BM_SteadyState/16/repeats:30_p50                      68.1 ns         67.9 ns           30
+BM_SteadyState/16/repeats:30_p95                      68.7 ns         68.2 ns           30
+BM_SteadyState/16/repeats:30_p99                      70.6 ns         68.2 ns           30
+BM_SteadyState/64/repeats:30_mean                     90.5 ns         90.3 ns           30
+BM_SteadyState/64/repeats:30_median                   90.5 ns         90.3 ns           30
+BM_SteadyState/64/repeats:30_stddev                  0.377 ns        0.289 ns           30
+BM_SteadyState/64/repeats:30_cv                       0.42 %          0.32 %            30
+BM_SteadyState/64/repeats:30_p50                      90.5 ns         90.3 ns           30
+BM_SteadyState/64/repeats:30_p95                      91.0 ns         90.7 ns           30
+BM_SteadyState/64/repeats:30_p99                      91.5 ns         90.8 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_mean         11.0 ns         11.0 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_median       10.8 ns         10.8 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_stddev      0.295 ns        0.287 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_cv           2.69 %          2.62 %            30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_p50          10.8 ns         10.8 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_p95          11.6 ns         11.6 ns           30
+BM_FastBook_AddLimitBuyNoFill/repeats:30_p99          11.6 ns         11.6 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_mean          38.5 ns         38.0 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_median        38.1 ns         37.9 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_stddev        1.53 ns        0.365 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_cv            3.98 %          0.96 %            30
+BM_FastBook_FullFillOneLevel/repeats:30_p50           38.1 ns         37.9 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_p95           39.1 ns         38.2 ns           30
+BM_FastBook_FullFillOneLevel/repeats:30_p99           39.5 ns         38.2 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_mean             23.5 ns         23.2 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_median           23.3 ns         23.2 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_stddev           1.20 ns        0.239 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_cv               5.10 %          1.03 %            30
+BM_FastBook_SweepLevels/1/repeats:30_p50              23.3 ns         23.2 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_p95              23.5 ns         23.4 ns           30
+BM_FastBook_SweepLevels/1/repeats:30_p99              23.6 ns         23.5 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_mean             91.7 ns         91.4 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_median           91.6 ns         91.3 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_stddev          0.884 ns        0.710 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_cv               0.96 %          0.78 %            30
+BM_FastBook_SweepLevels/4/repeats:30_p50              91.4 ns         91.1 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_p95              93.3 ns         92.6 ns           30
+BM_FastBook_SweepLevels/4/repeats:30_p99              93.3 ns         92.7 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_mean             410 ns          408 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_median           409 ns          408 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_stddev          4.97 ns         1.62 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_cv              1.21 %          0.40 %            30
+BM_FastBook_SweepLevels/16/repeats:30_p50              409 ns          407 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_p95              418 ns          410 ns           30
+BM_FastBook_SweepLevels/16/repeats:30_p99              424 ns          411 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_mean            1540 ns         1534 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_median          1534 ns         1531 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_stddev          14.1 ns         7.25 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_cv              0.91 %          0.47 %            30
+BM_FastBook_SweepLevels/64/repeats:30_p50             1533 ns         1530 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_p95             1556 ns         1546 ns           30
+BM_FastBook_SweepLevels/64/repeats:30_p99             1559 ns         1547 ns           30
+BM_FastBook_CancelById/1/repeats:30_mean               788 ns          789 ns           30
+BM_FastBook_CancelById/1/repeats:30_median             788 ns          789 ns           30
+BM_FastBook_CancelById/1/repeats:30_stddev            5.60 ns         3.53 ns           30
+BM_FastBook_CancelById/1/repeats:30_cv                0.71 %          0.45 %            30
+BM_FastBook_CancelById/1/repeats:30_p50                788 ns          789 ns           30
+BM_FastBook_CancelById/1/repeats:30_p95                797 ns          793 ns           30
+BM_FastBook_CancelById/1/repeats:30_p99                803 ns          797 ns           30
+BM_FastBook_CancelById/16/repeats:30_mean             59.5 ns         59.0 ns           30
+BM_FastBook_CancelById/16/repeats:30_median           58.7 ns         58.8 ns           30
+BM_FastBook_CancelById/16/repeats:30_stddev           3.04 ns         1.04 ns           30
+BM_FastBook_CancelById/16/repeats:30_cv               5.12 %          1.76 %            30
+BM_FastBook_CancelById/16/repeats:30_p50              58.7 ns         58.8 ns           30
+BM_FastBook_CancelById/16/repeats:30_p95              60.2 ns         59.4 ns           30
+BM_FastBook_CancelById/16/repeats:30_p99              63.5 ns         59.9 ns           30
+BM_FastBook_CancelById/256/repeats:30_mean            12.8 ns         12.7 ns           30
+BM_FastBook_CancelById/256/repeats:30_median          12.8 ns         12.7 ns           30
+BM_FastBook_CancelById/256/repeats:30_stddev         0.151 ns        0.054 ns           30
+BM_FastBook_CancelById/256/repeats:30_cv              1.17 %          0.43 %            30
+BM_FastBook_CancelById/256/repeats:30_p50             12.8 ns         12.7 ns           30
+BM_FastBook_CancelById/256/repeats:30_p95             12.9 ns         12.8 ns           30
+BM_FastBook_CancelById/256/repeats:30_p99             13.0 ns         12.8 ns           30
+BM_FastBook_SteadyState/4/repeats:30_mean             22.4 ns         22.2 ns           30
+BM_FastBook_SteadyState/4/repeats:30_median           22.3 ns         22.2 ns           30
+BM_FastBook_SteadyState/4/repeats:30_stddev          0.266 ns        0.100 ns           30
+BM_FastBook_SteadyState/4/repeats:30_cv               1.19 %          0.45 %            30
+BM_FastBook_SteadyState/4/repeats:30_p50              22.3 ns         22.2 ns           30
+BM_FastBook_SteadyState/4/repeats:30_p95              22.7 ns         22.4 ns           30
+BM_FastBook_SteadyState/4/repeats:30_p99              22.9 ns         22.4 ns           30
+BM_FastBook_SteadyState/16/repeats:30_mean            22.4 ns         22.3 ns           30
+BM_FastBook_SteadyState/16/repeats:30_median          22.3 ns         22.2 ns           30
+BM_FastBook_SteadyState/16/repeats:30_stddev         0.177 ns        0.130 ns           30
+BM_FastBook_SteadyState/16/repeats:30_cv              0.79 %          0.58 %            30
+BM_FastBook_SteadyState/16/repeats:30_p50             22.3 ns         22.2 ns           30
+BM_FastBook_SteadyState/16/repeats:30_p95             22.7 ns         22.5 ns           30
+BM_FastBook_SteadyState/16/repeats:30_p99             22.7 ns         22.5 ns           30
+BM_FastBook_SteadyState/64/repeats:30_mean            22.4 ns         22.3 ns           30
+BM_FastBook_SteadyState/64/repeats:30_median          22.3 ns         22.3 ns           30
+BM_FastBook_SteadyState/64/repeats:30_stddev         0.520 ns        0.124 ns           30
+BM_FastBook_SteadyState/64/repeats:30_cv              2.32 %          0.55 %            30
+BM_FastBook_SteadyState/64/repeats:30_p50             22.3 ns         22.3 ns           30
+BM_FastBook_SteadyState/64/repeats:30_p95             22.5 ns         22.4 ns           30
+BM_FastBook_SteadyState/64/repeats:30_p99             22.6 ns         22.5 ns           30
+
+--- vs 2026-06-05 baseline (FastBook p50, flat HierarchicalBitset) ---
+
+Benchmark              2026-06-05   2026-06-07   speedup
+AddLimitBuyNoFill         42.2 ns      10.8 ns     3.9x
+FullFillOneLevel          65.0 ns      37.9 ns     1.7x
+SweepLevels/1             46.1 ns      23.2 ns     2.0x
+SweepLevels/4            163.0 ns      91.1 ns     1.8x
+SweepLevels/16           616.0 ns     408.0 ns     1.5x
+SweepLevels/64          2427.0 ns    1531.0 ns     1.6x
+CancelById/1†             n/a          n/a          —
+CancelById/16             78.1 ns      58.7 ns     1.3x
+CancelById/256            31.9 ns      12.7 ns     2.5x
+SteadyState/4             55.1 ns      22.2 ns     2.5x
+SteadyState/16            55.1 ns      22.2 ns     2.5x
+SteadyState/64            55.3 ns      22.3 ns     2.5x
+
+† CancelById/1 dominated by PauseTiming overhead (~800 ns on Apple Silicon 24 MHz timer); not meaningful.
+
+Change: HierarchicalBitset switched from vector-of-vectors to a flat vector with
+a uint32_t[4] tier_offsets array. Eliminates per-tier heap allocations and improves
+cache locality across all bitset operations.
