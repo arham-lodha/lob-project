@@ -3,6 +3,7 @@
 #include "types.h"
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <vector>
 
@@ -14,11 +15,11 @@ FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
       tick_price_(tick_price),
       num_levels((max_price.price - min_price.price) / tick_price.price + 1),
       max_orders(max_orders), buy_levels_(num_levels), sell_levels_(num_levels),
-      sell_bitset_(num_levels), buy_bitset_(num_levels), pool_(max_orders),
-      free_list_() {
+      ht_shift_(0), sell_bitset_(num_levels), buy_bitset_(num_levels),
+      pool_(max_orders), free_list_() {
   free_list_.reserve(max_orders);
   for (size_t i = 0; i < pool_.size(); ++i) {
-    free_list_.push_back(&pool_[i]);
+    free_list_.push_back(i);
   }
 
   for (size_t i = 0; i < num_levels; ++i) {
@@ -26,66 +27,121 @@ FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
     buy_levels_[i].price = p;
     sell_levels_[i].price = p;
   }
+
+  // Hash table: capacity must be a power of 2 >= 2 * max_orders.
+  // Linear probing wraps with a bitmask, which requires power-of-2 size.
+  size_t ht_cap = 2;
+  while (ht_cap < 2 * max_orders)
+    ht_cap <<= 1;
+  order_id_to_index.assign(ht_cap, {0, 0, 0});
+  ht_shift_ = static_cast<uint32_t>(64 - __builtin_ctzll(ht_cap));
 }
 
-void FastBook::remove_order(FastOrder *order, PriceLevel &level,
-                            HierarchicalBitset &bitset,
+// Fibonacci multiplicative hash: maps dense monotone OrderIds to [0, cap).
+// GOLDEN = floor(2^64 / phi), distributes sequential IDs without clustering.
+static constexpr uint64_t HT_GOLDEN = 11400714819323198485ULL;
+static constexpr uint32_t HT_EMPTY = 0;
+static constexpr uint32_t HT_OCCUPIED = 1;
+static constexpr uint32_t HT_TOMBSTONE = 2;
+
+int32_t FastBook::ht_find(OrderId id) const {
+  const size_t mask = order_id_to_index.size() - 1;
+  size_t i = (id * HT_GOLDEN) >> ht_shift_;
+  while (true) {
+    const HtSlot &s = order_id_to_index[i];
+    if (s.pad == HT_EMPTY)
+      return -1; // empty — key absent
+    if (s.pad == HT_OCCUPIED && s.key == id)
+      return s.val;
+    i = (i + 1) & mask; // skip tombstones and mismatches
+  }
+}
+
+void FastBook::ht_insert(OrderId id, int32_t pool_idx) {
+  const size_t mask = order_id_to_index.size() - 1;
+  size_t i = (id * HT_GOLDEN) >> ht_shift_;
+  while (true) {
+    HtSlot &s = order_id_to_index[i];
+    if (s.pad != HT_OCCUPIED) { // empty or tombstone — claim this slot
+      s.key = id;
+      s.val = pool_idx;
+      s.pad = HT_OCCUPIED;
+      return;
+    }
+    i = (i + 1) & mask;
+  }
+}
+
+void FastBook::ht_erase(OrderId id) {
+  const size_t mask = order_id_to_index.size() - 1;
+  size_t i = (id * HT_GOLDEN) >> ht_shift_;
+  while (true) {
+    HtSlot &s = order_id_to_index[i];
+    if (s.pad == HT_EMPTY)
+      return; // not found (should not happen)
+    if (s.pad == HT_OCCUPIED && s.key == id) {
+      s.pad = HT_TOMBSTONE; // keep probe chain intact
+      return;
+    }
+    i = (i + 1) & mask;
+  }
+}
+
+void FastBook::remove_order(FastOrderv2 &order, PriceLevel &level,
+                            int32_t pool_idx, HierarchicalBitset &bitset,
                             Quantity quantity_to_remove) {
   // In some way you have to assert that order is actually in the level and
   // bitset is set for that price index
 
-  assert(order->order.quantity >= quantity_to_remove &&
+  assert(order.quantity >= quantity_to_remove &&
          "You can only remove at most the order's quantity");
 
   level.total_quantity -= quantity_to_remove;
-  order->order.quantity -= quantity_to_remove;
+  order.quantity -= quantity_to_remove;
 
-  if (order->order.quantity.quantity != 0)
+  if (order.quantity.quantity != 0)
     return;
 
-  if (order->prev) {
-    order->prev->next = order->next;
+  if (order.prev != -1) {
+    pool_[order.prev].next = order.next;
   } else {
-    level.head = order->next; // Removing head
+    level.head = order.next; // Removing head
   }
 
-  if (order->next) {
-    order->next->prev = order->prev;
+  if (order.next != -1) {
+    pool_[order.next].prev = order.prev;
   } else {
-    level.tail = order->prev; // Removing tail
+    level.tail = order.prev; // Removing tail
   }
 
   if (level.empty()) {
-    bitset.reset_bit(price_to_index(order->order.price));
+    bitset.reset_bit(price_to_index(order.price));
   }
 
-  order_id_to_order_.erase(order->order.id);
-  *order = FastOrder(); // Reset order
+  ht_erase(order.id);
+  order = FastOrderv2(); // Reset order
   num_orders_--;
-  free_list_.push_back(order); // Return to free list
+  free_list_.push_back(pool_idx); // Return to free list
 }
 
 void FastBook::cancel(OrderId order_id) {
-  // Check if order exists
-  auto entry = order_id_to_order_.find(order_id);
-  if (entry == order_id_to_order_.end()) {
-    return; // Order not found
-  }
 
-  // Disconnect order from price level linked list
+  int32_t index = ht_find(order_id);
 
-  FastOrder *order = entry->second;
+  if (index < 0)
+    return;
 
-  size_t price_index = price_to_index(order->order.price);
+  FastOrderv2 &order = pool_[index];
 
-  PriceLevel &level = (order->order.side == Side::BUY)
-                          ? buy_levels_[price_index]
-                          : sell_levels_[price_index];
+  size_t price_index = price_to_index(order.price);
+
+  PriceLevel &level = (order.side == Side::BUY) ? buy_levels_[price_index]
+                                                : sell_levels_[price_index];
 
   HierarchicalBitset &bitset =
-      (order->order.side == Side::BUY) ? buy_bitset_ : sell_bitset_;
+      (order.side == Side::BUY) ? buy_bitset_ : sell_bitset_;
 
-  remove_order(order, level, bitset, order->order.quantity);
+  remove_order(order, level, index, bitset, order.quantity);
 
   if (listener_) {
     listener_->on_order_canceled(order_id);
@@ -98,23 +154,20 @@ void FastBook::modify(OrderId order_id, Quantity new_quantity) {
     return;
   }
 
-  // Check if order exists
-  auto entry = order_id_to_order_.find(order_id);
-  if (entry == order_id_to_order_.end()) {
-    return; // Order not found
-  }
+  int32_t index = ht_find(order_id);
+  if (index < 0)
+    return;
 
-  FastOrder *order = entry->second;
-  size_t price_index = price_to_index(order->order.price);
-  PriceLevel &level = (order->order.side == Side::BUY)
-                          ? buy_levels_[price_index]
-                          : sell_levels_[price_index];
+  FastOrderv2 &order = pool_[index];
+  size_t price_index = price_to_index(order.price);
+  PriceLevel &level = (order.side == Side::BUY) ? buy_levels_[price_index]
+                                                : sell_levels_[price_index];
 
-  if (new_quantity > order->order.quantity)
-    level.total_quantity += (new_quantity - order->order.quantity);
+  if (new_quantity > order.quantity)
+    level.total_quantity += (new_quantity - order.quantity);
   else
-    level.total_quantity -= (order->order.quantity - new_quantity);
-  order->order.quantity = new_quantity;
+    level.total_quantity -= (order.quantity - new_quantity);
+  order.quantity = new_quantity;
 
   if (listener_) {
     listener_->on_order_modified(order_id, new_quantity);
@@ -172,20 +225,21 @@ void FastBook::match_orders(Order &order) {
          (order.side == Side::SELL && best_level.price < order.price)))
       return;
 
-    FastOrder *current_order = best_level.head;
+    int32_t current_order_index = best_level.head;
 
-    while (current_order && order.quantity.quantity > 0) {
-      Quantity executed_qty =
-          std::min(order.quantity, current_order->order.quantity);
+    while (current_order_index != -1 && order.quantity.quantity > 0) {
+      FastOrderv2 &current_order = pool_[current_order_index];
+      Quantity executed_qty = std::min(order.quantity, current_order.quantity);
       order.quantity -= executed_qty;
 
       if (listener_) {
-        listener_->on_order_filled(order.id, current_order->order.id,
-                                   best_level.price, executed_qty);
+        listener_->on_order_filled(order.id, current_order.id, best_level.price,
+                                   executed_qty);
       }
 
-      remove_order(current_order, best_level, bitset, executed_qty);
-      current_order = best_level.head;
+      remove_order(current_order, best_level, current_order_index, bitset,
+                   executed_qty);
+      current_order_index = best_level.head;
     }
   }
 }
@@ -202,28 +256,36 @@ void FastBook::add_limit_order(Order &order) {
 
   if (order.quantity.quantity > 0) {
     assert(num_orders_ < max_orders && "Order pool exhausted");
-    FastOrder *slot = free_list_.back();
+    int32_t slot = free_list_.back();
     free_list_.pop_back();
+
+    FastOrderv2 &order_slot = pool_[slot];
 
     size_t index = price_to_index(order.price);
     PriceLevel &level =
         (order.side == Side::BUY) ? buy_levels_[index] : sell_levels_[index];
 
-    FastOrder *old_tail = level.tail;
-    *slot = {.order = order, .next = nullptr, .prev = old_tail};
+    order_slot = {.id = order.id,
+                  .price = order.price,
+                  .quantity = order.quantity,
+                  .prev = level.tail,
+                  .next = -1,
+                  .side = order.side,
+                  .padding = {0, 0, 0}};
 
-    if (old_tail != nullptr)
-      old_tail->next = slot;
+    if (level.tail != -1)
+      pool_[level.tail].next = slot;
+
     level.tail = slot;
 
-    if (level.head == nullptr)
+    if (level.head == -1)
       level.head = slot;
     level.total_quantity += order.quantity;
     num_orders_++;
 
     (order.side == Side::BUY ? buy_bitset_ : sell_bitset_).set_bit(index);
-    order_id_to_order_[order.id] = slot;
 
+    ht_insert(order.id, slot);
     if (listener_)
       listener_->on_order_added(order);
   }

@@ -1,18 +1,26 @@
 #pragma once
 #include "hierarchical_bitset.hpp"
 #include "order_book.hpp"
-#include <unordered_map>
+#include "types.h"
+#include <cstdint>
 #include <vector>
 
 namespace lob {
 
 struct PriceLevel {
   Price price;
-  FastOrder *head;
-  FastOrder *tail;
-  Quantity total_quantity;
+  int32_t head = -1;
+  int32_t tail = -1;
+  Quantity total_quantity = Quantity(0);
 
-  bool empty() const { return head == nullptr; }
+  bool empty() const { return head < 0; }
+};
+
+struct HtSlot {
+  OrderId key;
+  int32_t val; // pool index
+  uint32_t
+      pad; // Padding to get 16 bytes. We will use this as occupied vs not check
 };
 
 class FastBook : public Orderbook {
@@ -26,19 +34,24 @@ private:
   size_t num_orders_ = 0;
   std::vector<PriceLevel> buy_levels_;
   std::vector<PriceLevel> sell_levels_;
-  std::unordered_map<OrderId, FastOrder *> order_id_to_order_;
+  std::vector<HtSlot> order_id_to_index;
+  uint32_t ht_shift_; // = 64 - log2(order_id_to_index.size())
   HierarchicalBitset sell_bitset_;
   HierarchicalBitset buy_bitset_;
-  std::vector<FastOrder> pool_;
-  std::vector<FastOrder *> free_list_;
+  std::vector<FastOrderv2> pool_;
+  std::vector<int32_t> free_list_;
 
   size_t price_to_index(Price price) const {
     return (price.price - min_price_.price) / tick_price_.price;
   }
   size_t capacity() const { return max_orders; }
 
-  void remove_order(FastOrder *order, PriceLevel &level,
+  void remove_order(FastOrderv2 &order, PriceLevel &level, int32_t pool_idx,
                     HierarchicalBitset &bitset, Quantity quantity_to_remove);
+
+  int32_t ht_find(OrderId id) const;
+  void ht_insert(OrderId id, int32_t pool_idx);
+  void ht_erase(OrderId id);
 
 public:
   FastBook(EventListener *listener, Price min_price, Price max_price,
