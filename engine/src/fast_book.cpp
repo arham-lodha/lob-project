@@ -45,7 +45,6 @@ FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
 static constexpr uint64_t HT_GOLDEN = 11400714819323198485ULL;
 static constexpr uint32_t HT_EMPTY = 0;
 static constexpr uint32_t HT_OCCUPIED = 1;
-static constexpr uint32_t HT_TOMBSTONE = 2;
 
 int32_t FastBook::ht_find(OrderId id) const {
   const size_t mask = order_id_to_index.size() - 1;
@@ -53,10 +52,10 @@ int32_t FastBook::ht_find(OrderId id) const {
   while (true) {
     const HtSlot &s = order_id_to_index[i];
     if (s.pad == HT_EMPTY)
-      return -1; // empty — key absent
-    if (s.pad == HT_OCCUPIED && s.key == id)
+      return -1;
+    if (s.key == id)
       return s.val;
-    i = (i + 1) & mask; // skip tombstones and mismatches
+    i = (i + 1) & mask;
   }
 }
 
@@ -65,7 +64,7 @@ void FastBook::ht_insert(OrderId id, int32_t pool_idx) {
   size_t i = (id * HT_GOLDEN) >> ht_shift_;
   while (true) {
     HtSlot &s = order_id_to_index[i];
-    if (s.pad != HT_OCCUPIED) { // empty or tombstone — claim this slot
+    if (s.pad == HT_EMPTY) {
       s.key = id;
       s.val = pool_idx;
       s.pad = HT_OCCUPIED;
@@ -78,15 +77,34 @@ void FastBook::ht_insert(OrderId id, int32_t pool_idx) {
 void FastBook::ht_erase(OrderId id) {
   const size_t mask = order_id_to_index.size() - 1;
   size_t i = (id * HT_GOLDEN) >> ht_shift_;
+
   while (true) {
     HtSlot &s = order_id_to_index[i];
     if (s.pad == HT_EMPTY)
-      return; // not found (should not happen)
-    if (s.pad == HT_OCCUPIED && s.key == id) {
-      s.pad = HT_TOMBSTONE; // keep probe chain intact
       return;
-    }
+    if (s.key == id)
+      break;
     i = (i + 1) & mask;
+  }
+
+  // Backward-shift deletion: pull the closest displaceable element into the
+  // hole, repeat until the cluster end (empty slot) is reached.
+  // Element at j (natural pos h) can fill hole at i when it probed through i:
+  // ((j - h) & mask) >= ((j - i) & mask).
+  while (true) {
+    size_t j = i;
+    while (true) {
+      j = (j + 1) & mask;
+      if (order_id_to_index[j].pad == HT_EMPTY) {
+        order_id_to_index[i].pad = HT_EMPTY;
+        return;
+      }
+      size_t h = (order_id_to_index[j].key * HT_GOLDEN) >> ht_shift_;
+      if (((j - h) & mask) >= ((j - i) & mask))
+        break;
+    }
+    order_id_to_index[i] = order_id_to_index[j];
+    i = j;
   }
 }
 
