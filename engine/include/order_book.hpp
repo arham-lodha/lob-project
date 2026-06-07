@@ -17,7 +17,7 @@ protected:
 public:
   virtual ~Orderbook() = default;
 
-  void add(Order order) {
+  virtual void add(Order order) {
     if (order.type == OrderType::MARKET) {
       execute_market_order(order);
     } else {

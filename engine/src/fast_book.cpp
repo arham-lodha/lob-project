@@ -12,8 +12,7 @@ namespace lob {
 FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
                    size_t max_orders)
     : Orderbook(listener), min_price_(min_price), max_price_(max_price),
-      num_levels((max_price.price - min_price.price) + 1),
-      ht_shift_(0),
+      num_levels((max_price.price - min_price.price) + 1), ht_shift_(0),
       bitsets_{HierarchicalBitset(num_levels), HierarchicalBitset(num_levels)},
       pool_(max_orders), free_list_() {
 
@@ -137,7 +136,6 @@ void FastBook::remove_order(FastOrderv2 &order, PriceLevel &level,
   }
 
   ht_erase(order.id);
-  order = FastOrderv2(); // Reset order
   num_orders_--;
   free_list_.push_back(pool_idx); // Return to free list
 }
@@ -211,10 +209,27 @@ bool FastBook::empty() const {
 }
 
 void FastBook::execute_market_order(Order &order) { match_orders(order); }
+void FastBook::add_limit_order(Order &order) { add(order); }
 
 void FastBook::match_orders(Order &order) {
-  // Match against the opposite side.
-  uint8_t opp = 1 - static_cast<uint8_t>(order.side);
+  if (order.type == OrderType::LIMIT) {
+    if (order.side == Side::BUY) {
+      match_orders_impl<Side::BUY, OrderType::LIMIT>(order);
+    } else {
+      match_orders_impl<Side::SELL, OrderType::LIMIT>(order);
+    }
+  } else {
+    if (order.side == Side::BUY) {
+      match_orders_impl<Side::BUY, OrderType::MARKET>(order);
+    } else {
+      match_orders_impl<Side::SELL, OrderType::MARKET>(order);
+    }
+  }
+}
+
+template <Side side, OrderType type>
+void FastBook::match_orders_impl(Order &order) {
+  constexpr uint8_t opp = 1 - static_cast<uint8_t>(side);
   HierarchicalBitset &bitset = bitsets_[opp];
 
   if (!bitset.any())
@@ -224,20 +239,34 @@ void FastBook::match_orders(Order &order) {
 
   while (order.quantity.quantity > 0 && bitset.any()) {
 
-    size_t best_index = (order.side == Side::BUY) ? bitset.find_first_set_bit()
-                                                  : bitset.find_last_set_bit();
+    size_t best_index;
+
+    if constexpr (side == Side::BUY) {
+      best_index = bitset.find_first_set_bit();
+    } else {
+      best_index = bitset.find_last_set_bit();
+    }
 
     PriceLevel &best_level = price_level_array[best_index];
 
-    if (order.type == OrderType::LIMIT &&
-        ((order.side == Side::BUY && best_level.price > order.price) ||
-         (order.side == Side::SELL && best_level.price < order.price)))
-      return;
+    if constexpr (type == OrderType::LIMIT) {
+      if constexpr (side == Side::BUY) {
+        if (best_level.price > order.price)
+          return;
+      } else {
+        if (best_level.price < order.price)
+          return;
+      }
+    }
 
     int32_t current_order_index = best_level.head;
 
     while (current_order_index != -1 && order.quantity.quantity > 0) {
       FastOrderv2 &current_order = pool_[current_order_index];
+      int32_t next_order_index = current_order.next;
+      if (next_order_index != -1)
+        __builtin_prefetch(&pool_[next_order_index], 0, 1);
+
       Quantity executed_qty = std::min(order.quantity, current_order.quantity);
       order.quantity -= executed_qty;
 
@@ -248,29 +277,47 @@ void FastBook::match_orders(Order &order) {
 
       remove_order(current_order, best_level, current_order_index, bitset,
                    executed_qty);
-      current_order_index = best_level.head;
+      current_order_index = next_order_index;
     }
   }
 }
 
-void FastBook::add_limit_order(Order &order) {
-  if (order.price < min_price_ || order.price > max_price_) {
-    if (listener_)
-      listener_->on_order_canceled(order.id);
+
+template <Side side, OrderType type>
+void FastBook::add_order_impl(Order &order) {
+
+  if constexpr (type == OrderType::LIMIT) {
+    if (order.price < min_price_ || order.price > max_price_) {
+      if (listener_)
+        listener_->on_order_canceled(order.id);
+
+      return;
+    }
+  }
+
+  match_orders_impl<side, type>(order);
+
+  if (order.quantity.quantity == 0)
+    return;
+
+  if constexpr (type == OrderType::MARKET) {
     return;
   }
 
-  match_orders(order);
-
-  if (order.quantity.quantity > 0) {
+  if constexpr (type == OrderType::LIMIT) {
     assert(num_orders_ < pool_.size() && "Order pool exhausted");
+
+    constexpr uint8_t side_index = (side == Side::BUY) ? 0 : 1;
+    HierarchicalBitset &bitset = bitsets_[side_index];
+    std::vector<PriceLevel> &price_level_array = levels_[side_index];
+
+    size_t index = price_to_index(order.price);
+    PriceLevel &level = price_level_array[index];
+
     int32_t slot = free_list_.back();
     free_list_.pop_back();
 
     FastOrderv2 &order_slot = pool_[slot];
-
-    size_t index = price_to_index(order.price);
-    PriceLevel &level = levels_[static_cast<uint8_t>(order.side)][index];
 
     order_slot = {.id = order.id,
                   .price = order.price,
@@ -290,11 +337,25 @@ void FastBook::add_limit_order(Order &order) {
     level.total_quantity += order.quantity;
     num_orders_++;
 
-    bitsets_[static_cast<uint8_t>(order.side)].set_bit(index);
+    bitset.set_bit(index);
 
     ht_insert(order.id, slot);
     if (listener_)
       listener_->on_order_added(order);
+  }
+}
+
+void FastBook::add(Order order) {
+  if (order.type == OrderType::LIMIT) {
+    if (order.side == Side::BUY)
+      add_order_impl<Side::BUY, OrderType::LIMIT>(order);
+    else
+      add_order_impl<Side::SELL, OrderType::LIMIT>(order);
+  } else {
+    if (order.side == Side::BUY)
+      add_order_impl<Side::BUY, OrderType::MARKET>(order);
+    else
+      add_order_impl<Side::SELL, OrderType::MARKET>(order);
   }
 }
 

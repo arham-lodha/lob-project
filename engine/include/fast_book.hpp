@@ -29,7 +29,8 @@ private:
   Price max_price_;
   size_t num_levels;
   size_t num_orders_ = 0;
-  std::vector<PriceLevel> levels_[2]; // [BUY=0, SELL=1], index via static_cast<uint8_t>(side)
+  std::vector<PriceLevel>
+      levels_[2]; // [BUY=0, SELL=1], index via static_cast<uint8_t>(side)
   std::vector<HtSlot> order_id_to_index;
   uint32_t ht_shift_;             // = 64 - log2(order_id_to_index.size())
   HierarchicalBitset bitsets_[2]; // [BUY=0, SELL=1]
@@ -47,6 +48,8 @@ private:
   void ht_insert(OrderId id, int32_t pool_idx);
   void ht_erase(OrderId id);
 
+  template <Side side, OrderType type> void add_order_impl(Order &order);
+
 public:
   FastBook(EventListener *listener, Price min_price, Price max_price,
            size_t max_orders);
@@ -58,10 +61,15 @@ public:
   Quantity total_quantity_at_price(Price price, Side side) const override;
   bool empty() const override;
 
+  void add(Order order) override;
+
 protected:
   void execute_market_order(Order &order) override;
   void add_limit_order(Order &order) override;
   void match_orders(Order &incoming_order) override;
+
+  template <Side side, OrderType type>
+  void match_orders_impl(Order &incoming_order);
 };
 
 } // namespace lob
