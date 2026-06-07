@@ -57,24 +57,29 @@ SteadyState/64           22.3    22.5     22.6      0.52    2.3%
 
 † CancelById/1 times are dominated by `PauseTiming`/`ResumeTiming` overhead (~800 ns per call on Apple Silicon's 24 MHz system timer). The batch size is 1, so overhead is per-op and the actual cancel cost is not measurable with this methodology. CancelById/16 and /256 have meaningful signal.
 
-#### Summary (median speedup)
+#### Summary (median, all times ns)
+
+FastBook v1: pointer-based nodes (64 B), `std::unordered_map`, vector-of-vectors bitset (2026-06-05).  
+FastBook v2: compact nodes (32 B), flat open-addressing hash map, flat bitset (2026-06-07).
 
 ```
-Benchmark              RefBook   FastBook   Speedup
----------------------------------------------------
-AddLimitBuyNoFill         27.1       10.8    2.51x
-FullFillOneLevel           130       38.1    3.41x
-SweepLevels/1            76.0       23.3    3.26x
-SweepLevels/4             278       91.6    3.04x
-SweepLevels/16           1100        409    2.69x
-SweepLevels/64           4465       1533    2.91x
-CancelById/1          829 (†)   788 (†)      n/a
-CancelById/16             112       58.7    1.91x
-CancelById/256           85.8       12.8    6.70x
-SteadyState/4            46.0       22.3    2.06x
-SteadyState/16           68.1       22.3    3.05x
-SteadyState/64           90.5       22.3    4.06x
+Benchmark           RefBook   FB v1   FB v2   v1→v2   v2 vs Ref
+----------------------------------------------------------------
+AddLimitBuyNoFill      27.1    42.2    10.8    3.91x     2.51x
+FullFillOneLevel        130    65.0    38.1    1.71x     3.41x
+SweepLevels/1          76.0    46.1    23.3    1.98x     3.26x
+SweepLevels/4           278     163    91.6    1.78x     3.04x
+SweepLevels/16         1100     616     409    1.51x     2.69x
+SweepLevels/64         4465    2427    1533    1.58x     2.91x
+CancelById/1        829 (†) 801 (†) 788 (†)     n/a       n/a
+CancelById/16           112    78.1    58.7    1.33x     1.91x
+CancelById/256         85.8    31.9    12.8    2.49x     6.70x
+SteadyState/4          46.0    55.1    22.3    2.47x     2.06x
+SteadyState/16         68.1    55.1    22.3    2.47x     3.05x
+SteadyState/64         90.5    55.4    22.3    2.48x     4.06x
 ```
+
+† dominated by `PauseTiming` overhead; not meaningful (see notes).
 
 ### Benchmark descriptions
 
@@ -88,15 +93,15 @@ SteadyState/64           90.5       22.3    4.06x
 
 ### Notes
 
-**SweepLevels** shows a consistent 2.7–3.3x gain. FastBook avoids `std::map` traversal (O(log N) per level hop) by using a flat array + hierarchical bitset for O(1) next-level lookup. Per-fill cost: FastBook ~23 ns/fill at depth 1, RefBook ~76 ns/fill — structural, not depth-dependent.
+**SweepLevels** (v2 vs RefBook: 2.7–3.3x, v1→v2: 1.5–2.0x). FastBook avoids `std::map` traversal (O(log N) per level hop) via flat price-level array + hierarchical bitset for O(1) next-level lookup. The v1→v2 gain comes from 32-byte nodes fitting 2/cache line (vs 1 for 64-byte v1 nodes), reducing fill-loop cache misses. Per-fill cost: v2 ~23 ns, v1 ~46 ns, RefBook ~76 ns.
 
-**CancelById/1** is not meaningful for either implementation: the `PauseTiming`/`ResumeTiming` pair costs ~800 ns on Apple Silicon's 24 MHz system timer, and with batch size 1 this overhead is per-operation. At depth=16 and depth=256 the overhead is amortized and the real cancel cost emerges. FastBook is 1.91x faster at depth 16 and 6.70x at depth 256, confirming O(1) cancel (flat hash map lookup + index splice) vs. RefBook's O(log N) map erase.
+**CancelById** (v2 vs v1: 1.33x at /16, 2.49x at /256). The `PauseTiming`/`ResumeTiming` pair costs ~800 ns on Apple Silicon's 24 MHz timer, making /1 unmeasurable regardless of implementation. At /16 and /256 the overhead amortizes and real cancel cost emerges. v1→v2 gain is from the flat open-addressing hash map (≤2 cache lines per lookup at 50% load) replacing `std::unordered_map` (chained bucketing, 2–3 cache lines). v2 vs RefBook: 1.91x at /16, 6.70x at /256.
 
-**FullFillOneLevel** is 3.4x faster: pool recycling eliminates allocation, and the flat hash map + compact 32-byte nodes keep the fill loop in cache.
+**FullFillOneLevel** (v2 vs RefBook: 3.4x, v1→v2: 1.7x). RefBook allocates per fill; both FastBook versions use a pre-allocated pool. v1→v2 gain from compact nodes and faster hash map on the remove path.
 
-**AddLimitBuyNoFill** is 2.5x faster. The flat open-addressing hash map insert is substantially cheaper than `std::unordered_map`, and the flat HierarchicalBitset (single allocation, contiguous tier words) makes the bitset set-bit path faster than the previous vector-of-vectors layout.
+**AddLimitBuyNoFill** (v2 vs RefBook: 2.5x, v1→v2: 3.9x). v1 was *slower* than RefBook here (42 vs 27 ns) because `std::unordered_map` insert + vector-of-vectors bitset set_bit outweighed the map cost. v2 reverses this: the flat hash map insert is cheaper than `std::unordered_map`, and the flat bitset (single allocation, contiguous tier words) is substantially faster.
 
-**SteadyState** is depth-invariant at ~22 ns because cancel + add cost is O(1) regardless of book size. RefBook's 46→68→91 ns growth across depths 4/16/64 reflects increasing `std::map` node cache pressure. The 2–4x spread widens with depth for this reason.
+**SteadyState** (v2 vs RefBook: 2.1–4.1x, v1→v2: 2.5x). v2 is depth-invariant at ~22 ns; v1 was invariant at ~55 ns. The 2.5x v1→v2 gain comes equally from the faster cancel (hash map) and faster add (hash map + flat bitset). RefBook's 46→68→91 ns growth reflects `std::map` node cache pressure worsening with depth.
 
 ### Reproduce
 
