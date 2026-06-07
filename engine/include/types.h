@@ -54,8 +54,8 @@ struct alignas(32) Order {
                           // multiple of 32 bytes
 
   Order()
-      : id(0), price(Price(UINT64_MAX)), seq_num(0), quantity(), side(Side::BUY),
-        type(OrderType::LIMIT), padding{} {};
+      : id(0), price(Price(UINT64_MAX)), seq_num(0), quantity(),
+        side(Side::BUY), type(OrderType::LIMIT), padding{} {};
   Order(OrderId id, Price price, SequenceNumber seq_num, Quantity quantity,
         Side side)
       : id(id), price(price), seq_num(seq_num), quantity(quantity), side(side),
@@ -76,5 +76,19 @@ struct alignas(64) FastOrder {
 };
 
 static_assert(sizeof(FastOrder) == 64, "FastOrder struct must be 64 bytes");
+
+struct alignas(32) FastOrderv2 {
+  OrderId id;  // 8 Bytes
+  Price price; // 8 bytes
+
+  Quantity quantity; // 4 bytes
+  int32_t prev = -1; // 4 bytes
+  int32_t next = -1; // 4 bytes
+
+  Side side : 1;      // 1 bytes
+  uint8_t padding[3]; // 3 padding bytes
+};
+
+static_assert(sizeof(FastOrderv2) == 32, "FastOrderv2 must be 32 bytes");
 
 } // namespace lob
