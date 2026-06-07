@@ -18,7 +18,6 @@ public:
 
 static const Price MIN_P{1};
 static const Price MAX_P{10000};
-static const Price TICK{1};
 
 // Add a limit buy that never crosses.
 // Batch-reconstruct to avoid exhausting the pool across the full benchmark run.
@@ -28,7 +27,7 @@ static void BM_FastBook_AddLimitBuyNoFill(benchmark::State &state) {
     OrderId id = 1;
     while (state.KeepRunningBatch(BATCH)) {
         state.PauseTiming();
-        FastBook book(&listener, MIN_P, MAX_P, TICK, BATCH);
+        FastBook book(&listener, MIN_P, MAX_P, BATCH);
         state.ResumeTiming();
         for (size_t i = 0; i < BATCH; ++i) {
             book.add(Order(id, Price(100), SequenceNumber(id), Quantity(10), Side::BUY));
@@ -46,7 +45,7 @@ BENCHMARK(BM_FastBook_AddLimitBuyNoFill)
 // Each iteration adds a matching buy+sell pair — one fill, pool slot recycles.
 static void BM_FastBook_FullFillOneLevel(benchmark::State &state) {
     NullListener listener;
-    FastBook book(&listener, MIN_P, MAX_P, TICK, 2);
+    FastBook book(&listener, MIN_P, MAX_P, 2);
     OrderId id = 1;
     for (auto _ : state) {
         book.add(Order(id,     Price(100), SequenceNumber(id),     Quantity(10), Side::SELL));
@@ -68,7 +67,7 @@ static void BM_FastBook_SweepLevels(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
     const int BATCH = (MAX_P.price - 100) / depth;
-    FastBook book(&listener, MIN_P, MAX_P, TICK, BATCH * depth);
+    FastBook book(&listener, MIN_P, MAX_P, BATCH * depth);
     OrderId id = 1;
 
     while (state.KeepRunningBatch(BATCH)) {
@@ -102,7 +101,7 @@ BENCHMARK(BM_FastBook_SweepLevels)
 static void BM_FastBook_CancelById(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
-    FastBook book(&listener, MIN_P, MAX_P, TICK, depth);
+    FastBook book(&listener, MIN_P, MAX_P, depth);
     OrderId id = 1;
 
     while (state.KeepRunningBatch(depth)) {
@@ -129,7 +128,7 @@ BENCHMARK(BM_FastBook_CancelById)
 static void BM_FastBook_SteadyState(benchmark::State &state) {
     NullListener listener;
     const int depth = state.range(0);
-    FastBook book(&listener, MIN_P, MAX_P, TICK, depth * 4);
+    FastBook book(&listener, MIN_P, MAX_P, depth * 4);
     OrderId id = 1;
 
     for (int i = 0; i < depth; ++i) {

@@ -10,22 +10,25 @@
 namespace lob {
 
 FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
-                   Price tick_price, size_t max_orders)
+                   size_t max_orders)
     : Orderbook(listener), min_price_(min_price), max_price_(max_price),
-      tick_price_(tick_price),
-      num_levels((max_price.price - min_price.price) / tick_price.price + 1),
-      max_orders(max_orders), buy_levels_(num_levels), sell_levels_(num_levels),
-      ht_shift_(0), sell_bitset_(num_levels), buy_bitset_(num_levels),
+      num_levels((max_price.price - min_price.price) + 1),
+      ht_shift_(0),
+      bitsets_{HierarchicalBitset(num_levels), HierarchicalBitset(num_levels)},
       pool_(max_orders), free_list_() {
+
   free_list_.reserve(max_orders);
   for (size_t i = 0; i < pool_.size(); ++i) {
     free_list_.push_back(i);
   }
 
+  levels_[0].resize(num_levels);
+  levels_[1].resize(num_levels);
+
   for (size_t i = 0; i < num_levels; ++i) {
-    Price p(min_price_.price + i * tick_price_.price);
-    buy_levels_[i].price = p;
-    sell_levels_[i].price = p;
+    Price p(min_price_.price + i);
+    levels_[0][i].price = p;
+    levels_[1][i].price = p;
   }
 
   // Hash table: capacity must be a power of 2 >= 2 * max_orders.
@@ -90,9 +93,6 @@ void FastBook::ht_erase(OrderId id) {
 void FastBook::remove_order(FastOrderv2 &order, PriceLevel &level,
                             int32_t pool_idx, HierarchicalBitset &bitset,
                             Quantity quantity_to_remove) {
-  // In some way you have to assert that order is actually in the level and
-  // bitset is set for that price index
-
   assert(order.quantity >= quantity_to_remove &&
          "You can only remove at most the order's quantity");
 
@@ -125,7 +125,6 @@ void FastBook::remove_order(FastOrderv2 &order, PriceLevel &level,
 }
 
 void FastBook::cancel(OrderId order_id) {
-
   int32_t index = ht_find(order_id);
 
   if (index < 0)
@@ -134,12 +133,9 @@ void FastBook::cancel(OrderId order_id) {
   FastOrderv2 &order = pool_[index];
 
   size_t price_index = price_to_index(order.price);
-
-  PriceLevel &level = (order.side == Side::BUY) ? buy_levels_[price_index]
-                                                : sell_levels_[price_index];
-
-  HierarchicalBitset &bitset =
-      (order.side == Side::BUY) ? buy_bitset_ : sell_bitset_;
+  uint8_t side_index = static_cast<uint8_t>(order.side);
+  PriceLevel &level = levels_[side_index][price_index];
+  HierarchicalBitset &bitset = bitsets_[side_index];
 
   remove_order(order, level, index, bitset, order.quantity);
 
@@ -160,8 +156,7 @@ void FastBook::modify(OrderId order_id, Quantity new_quantity) {
 
   FastOrderv2 &order = pool_[index];
   size_t price_index = price_to_index(order.price);
-  PriceLevel &level = (order.side == Side::BUY) ? buy_levels_[price_index]
-                                                : sell_levels_[price_index];
+  PriceLevel &level = levels_[static_cast<uint8_t>(order.side)][price_index];
 
   if (new_quantity > order.quantity)
     level.total_quantity += (new_quantity - order.quantity);
@@ -175,43 +170,39 @@ void FastBook::modify(OrderId order_id, Quantity new_quantity) {
 }
 
 Price FastBook::best_bid() const {
-  if (!buy_bitset_.any())
+  if (!bitsets_[0].any())
     return Price{0};
-  return buy_levels_[buy_bitset_.find_last_set_bit()].price;
+  return levels_[0][bitsets_[0].find_last_set_bit()].price;
 }
 
 Price FastBook::best_ask() const {
-  if (!sell_bitset_.any())
+  if (!bitsets_[1].any())
     return Price{0};
-  return sell_levels_[sell_bitset_.find_first_set_bit()].price;
+  return levels_[1][bitsets_[1].find_first_set_bit()].price;
 }
 
 Quantity FastBook::total_quantity_at_price(Price price, Side side) const {
-  if (price.price < min_price_.price || price > max_price_ ||
-      (price.price - min_price_.price) % tick_price_.price != 0)
+  if (price.price < min_price_.price || price > max_price_)
     return Quantity{0};
   size_t price_index = price_to_index(price);
-  const PriceLevel &level = (side == Side::BUY) ? buy_levels_[price_index]
-                                                : sell_levels_[price_index];
-  return level.total_quantity;
+  return levels_[static_cast<uint8_t>(side)][price_index].total_quantity;
 }
 
 bool FastBook::empty() const {
-  return !buy_bitset_.any() && !sell_bitset_.any();
+  return !bitsets_[0].any() && !bitsets_[1].any();
 }
 
 void FastBook::execute_market_order(Order &order) { match_orders(order); }
 
 void FastBook::match_orders(Order &order) {
-
-  HierarchicalBitset &bitset =
-      (order.side == Side::BUY) ? sell_bitset_ : buy_bitset_;
+  // Match against the opposite side.
+  uint8_t opp = 1 - static_cast<uint8_t>(order.side);
+  HierarchicalBitset &bitset = bitsets_[opp];
 
   if (!bitset.any())
     return;
 
-  std::vector<PriceLevel> &price_level_array =
-      (order.side == Side::BUY) ? sell_levels_ : buy_levels_;
+  std::vector<PriceLevel> &price_level_array = levels_[opp];
 
   while (order.quantity.quantity > 0 && bitset.any()) {
 
@@ -245,8 +236,7 @@ void FastBook::match_orders(Order &order) {
 }
 
 void FastBook::add_limit_order(Order &order) {
-  if (order.price < min_price_ || order.price > max_price_ ||
-      (order.price.price - min_price_.price) % tick_price_.price != 0) {
+  if (order.price < min_price_ || order.price > max_price_) {
     if (listener_)
       listener_->on_order_canceled(order.id);
     return;
@@ -255,15 +245,14 @@ void FastBook::add_limit_order(Order &order) {
   match_orders(order);
 
   if (order.quantity.quantity > 0) {
-    assert(num_orders_ < max_orders && "Order pool exhausted");
+    assert(num_orders_ < pool_.size() && "Order pool exhausted");
     int32_t slot = free_list_.back();
     free_list_.pop_back();
 
     FastOrderv2 &order_slot = pool_[slot];
 
     size_t index = price_to_index(order.price);
-    PriceLevel &level =
-        (order.side == Side::BUY) ? buy_levels_[index] : sell_levels_[index];
+    PriceLevel &level = levels_[static_cast<uint8_t>(order.side)][index];
 
     order_slot = {.id = order.id,
                   .price = order.price,
@@ -283,7 +272,7 @@ void FastBook::add_limit_order(Order &order) {
     level.total_quantity += order.quantity;
     num_orders_++;
 
-    (order.side == Side::BUY ? buy_bitset_ : sell_bitset_).set_bit(index);
+    bitsets_[static_cast<uint8_t>(order.side)].set_bit(index);
 
     ht_insert(order.id, slot);
     if (listener_)

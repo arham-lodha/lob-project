@@ -25,26 +25,20 @@ struct HtSlot {
 
 class FastBook : public Orderbook {
 private:
-  // You can add any additional data members you need here
   Price min_price_;
   Price max_price_;
-  Price tick_price_;
   size_t num_levels;
-  size_t max_orders;
   size_t num_orders_ = 0;
-  std::vector<PriceLevel> buy_levels_;
-  std::vector<PriceLevel> sell_levels_;
+  std::vector<PriceLevel> levels_[2]; // [BUY=0, SELL=1], index via static_cast<uint8_t>(side)
   std::vector<HtSlot> order_id_to_index;
-  uint32_t ht_shift_; // = 64 - log2(order_id_to_index.size())
-  HierarchicalBitset sell_bitset_;
-  HierarchicalBitset buy_bitset_;
+  uint32_t ht_shift_;             // = 64 - log2(order_id_to_index.size())
+  HierarchicalBitset bitsets_[2]; // [BUY=0, SELL=1]
   std::vector<FastOrderv2> pool_;
   std::vector<int32_t> free_list_;
 
   size_t price_to_index(Price price) const {
-    return (price.price - min_price_.price) / tick_price_.price;
+    return price.price - min_price_.price;
   }
-  size_t capacity() const { return max_orders; }
 
   void remove_order(FastOrderv2 &order, PriceLevel &level, int32_t pool_idx,
                     HierarchicalBitset &bitset, Quantity quantity_to_remove);
@@ -55,7 +49,7 @@ private:
 
 public:
   FastBook(EventListener *listener, Price min_price, Price max_price,
-           Price tick_price, size_t max_orders);
+           size_t max_orders);
 
   void cancel(OrderId order_id) override;
   void modify(OrderId order_id, Quantity new_quantity) override;

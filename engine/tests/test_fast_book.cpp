@@ -9,7 +9,6 @@ using namespace lob::test;
 
 static const Price  MIN_PRICE{1};
 static const Price  MAX_PRICE{1000};
-static const Price  TICK{1};
 static const size_t MAX_ORDERS = 10000;
 
 static void check_no_cross(Orderbook &book) {
@@ -41,7 +40,7 @@ static bool fills_equal(const std::vector<FillEvent> &a,
 class FastBookTest : public ::testing::Test {
 protected:
     TestListener listener;
-    FastBook book{&listener, MIN_PRICE, MAX_PRICE, TICK, MAX_ORDERS};
+    FastBook book{&listener, MIN_PRICE, MAX_PRICE, MAX_ORDERS};
 };
 
 // --- Resting ---
@@ -199,7 +198,7 @@ TEST_F(FastBookTest, ModifyToZeroCancelsOrder) {
     EXPECT_TRUE(book.empty());
 }
 
-// --- Bounds & tick validation ---
+// --- Bounds ---
 
 TEST_F(FastBookTest, OutOfRangePriceAboveMax) {
     book.add(limit_buy(1, 1001, 10));
@@ -209,20 +208,6 @@ TEST_F(FastBookTest, OutOfRangePriceAboveMax) {
 TEST_F(FastBookTest, OutOfRangePriceBelowMin) {
     book.add(limit_sell(1, 0, 10));
     EXPECT_TRUE(book.empty());
-}
-
-TEST_F(FastBookTest, MisalignedTickRejected) {
-    TestListener l2;
-    FastBook book2{&l2, Price(2), Price(100), Price(2), 100};
-    book2.add(limit_buy(1, 3, 10));   // price 3 not on tick 2
-    EXPECT_TRUE(book2.empty());
-}
-
-TEST_F(FastBookTest, AlignedTickAccepted) {
-    TestListener l2;
-    FastBook book2{&l2, Price(2), Price(100), Price(2), 100};
-    book2.add(limit_buy(1, 4, 10));   // price 4 on tick 2
-    EXPECT_EQ(book2.best_bid().price, 4u);
 }
 
 TEST_F(FastBookTest, TotalQuantityOutOfRangeReturnsZero) {
@@ -267,7 +252,7 @@ class DiffTest : public ::testing::Test {
 protected:
     TestListener ref_l, fast_l;
     RefBook      ref{&ref_l};
-    FastBook     fast{&fast_l, MIN_PRICE, MAX_PRICE, TICK, MAX_ORDERS};
+    FastBook     fast{&fast_l, MIN_PRICE, MAX_PRICE, MAX_ORDERS};
 
     void step(Order o) {
         ref_l.clear();
@@ -332,7 +317,7 @@ RC_GTEST_PROP(DiffPropertyTest, SameFillsAndStateAsRefBook, ()) {
 
     TestListener ref_l, fast_l;
     RefBook  ref(&ref_l);
-    FastBook fast(&fast_l, MIN_PRICE, MAX_PRICE, TICK, MAX_ORDERS);
+    FastBook fast(&fast_l, MIN_PRICE, MAX_PRICE, MAX_ORDERS);
 
     OrderId id = 1;
     for (auto &[price, qty, is_buy] : ops) {
