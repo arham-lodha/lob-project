@@ -8,13 +8,13 @@
 namespace lob {
 
 struct PriceLevel {
-  Price price;
-  int32_t head = -1;
-  int32_t tail = -1;
-  Quantity total_quantity = Quantity(0);
+  int32_t head = -1;                     // 4 bytes
+  int32_t tail = -1;                     // 4 bytes
+  Quantity total_quantity = Quantity(0); // 4 bytes
 
   bool empty() const { return head < 0; }
 };
+static_assert(sizeof(PriceLevel) == 12, "PriceLevel should be 12 bytes");
 
 struct HtSlot {
   OrderId key;

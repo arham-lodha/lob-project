@@ -202,3 +202,140 @@ RC_GTEST_PROP(HierarchicalBitsetPropertyTest, FindFirstMatchesBruteForce, ()) {
 
     RC_ASSERT(bs.find_first_set_bit() == brute);
 }
+
+// --- find_next_set_bit ---
+
+TEST(HierarchicalBitsetTest, FindNextSameBit) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(42);
+    EXPECT_EQ(bs.find_next_set_bit(42), 42u);
+}
+
+TEST(HierarchicalBitsetTest, FindNextSkipsClearedBit) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(42);
+    bs.set_bit(100);
+    bs.reset_bit(42);
+    EXPECT_EQ(bs.find_next_set_bit(42), 100u);
+}
+
+TEST(HierarchicalBitsetTest, FindNextAcrossWordBoundary) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(63);
+    bs.set_bit(65);
+    // start at 64 — should skip 63, find 65
+    EXPECT_EQ(bs.find_next_set_bit(64), 65u);
+    // start at 63 — should find 63
+    EXPECT_EQ(bs.find_next_set_bit(63), 63u);
+}
+
+TEST(HierarchicalBitsetTest, FindNextReturnsMaxWhenNone) {
+    HierarchicalBitset bs(200);
+    bs.set_bit(50);
+    bs.reset_bit(50);
+    EXPECT_EQ(bs.find_next_set_bit(0), SIZE_MAX);
+}
+
+TEST(HierarchicalBitsetTest, FindNextReturnsMaxPastLastBit) {
+    HierarchicalBitset bs(200);
+    bs.set_bit(50);
+    EXPECT_EQ(bs.find_next_set_bit(51), SIZE_MAX);
+}
+
+TEST(HierarchicalBitsetTest, FindNextAcrossTierBoundary) {
+    HierarchicalBitset bs(262144);
+    bs.set_bit(4095);
+    bs.set_bit(4097);
+    EXPECT_EQ(bs.find_next_set_bit(4096), 4097u);
+}
+
+// --- find_prev_set_bit ---
+
+TEST(HierarchicalBitsetTest, FindPrevSameBit) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(42);
+    EXPECT_EQ(bs.find_prev_set_bit(42), 42u);
+}
+
+TEST(HierarchicalBitsetTest, FindPrevSkipsClearedBit) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(42);
+    bs.set_bit(100);
+    bs.reset_bit(100);
+    EXPECT_EQ(bs.find_prev_set_bit(100), 42u);
+}
+
+TEST(HierarchicalBitsetTest, FindPrevAcrossWordBoundary) {
+    HierarchicalBitset bs(1000);
+    bs.set_bit(63);
+    bs.set_bit(65);
+    // start at 64 — should skip 65, find 63
+    EXPECT_EQ(bs.find_prev_set_bit(64), 63u);
+    // start at 65 — should find 65
+    EXPECT_EQ(bs.find_prev_set_bit(65), 65u);
+}
+
+TEST(HierarchicalBitsetTest, FindPrevReturnsMaxWhenNone) {
+    HierarchicalBitset bs(200);
+    bs.set_bit(50);
+    EXPECT_EQ(bs.find_prev_set_bit(49), SIZE_MAX);
+}
+
+TEST(HierarchicalBitsetTest, FindPrevAtBit0) {
+    HierarchicalBitset bs(200);
+    bs.set_bit(0);
+    EXPECT_EQ(bs.find_prev_set_bit(0), 0u);
+    bs.reset_bit(0);
+    EXPECT_EQ(bs.find_prev_set_bit(0), SIZE_MAX);
+}
+
+TEST(HierarchicalBitsetTest, FindPrevAcrossTierBoundary) {
+    HierarchicalBitset bs(262144);
+    bs.set_bit(4095);
+    bs.set_bit(4097);
+    EXPECT_EQ(bs.find_prev_set_bit(4096), 4095u);
+}
+
+// --- Property tests ---
+
+RC_GTEST_PROP(HierarchicalBitsetPropertyTest, FindNextMatchesBruteForce, ()) {
+    const size_t N = 300;
+    auto indices = *rc::gen::nonEmpty(
+        rc::gen::container<std::vector<size_t>>(
+            rc::gen::inRange<size_t>(0, N)));
+    size_t start = *rc::gen::inRange<size_t>(0, N);
+
+    HierarchicalBitset bs(N);
+    std::vector<bool> ref(N, false);
+    for (size_t i : indices) {
+        bs.set_bit(i);
+        ref[i] = true;
+    }
+
+    size_t brute = start;
+    while (brute < N && !ref[brute]) ++brute;
+    size_t expected = (brute < N) ? brute : SIZE_MAX;
+
+    RC_ASSERT(bs.find_next_set_bit(start) == expected);
+}
+
+RC_GTEST_PROP(HierarchicalBitsetPropertyTest, FindPrevMatchesBruteForce, ()) {
+    const size_t N = 300;
+    auto indices = *rc::gen::nonEmpty(
+        rc::gen::container<std::vector<size_t>>(
+            rc::gen::inRange<size_t>(0, N)));
+    size_t start = *rc::gen::inRange<size_t>(0, N);
+
+    HierarchicalBitset bs(N);
+    std::vector<bool> ref(N, false);
+    for (size_t i : indices) {
+        bs.set_bit(i);
+        ref[i] = true;
+    }
+
+    size_t brute = start;
+    while (brute < N && !ref[brute]) { if (brute == 0) { brute = N; break; } --brute; }
+    size_t expected = (brute < N) ? brute : SIZE_MAX;
+
+    RC_ASSERT(bs.find_prev_set_bit(start) == expected);
+}

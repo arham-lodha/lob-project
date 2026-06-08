@@ -24,12 +24,6 @@ FastBook::FastBook(EventListener *listener, Price min_price, Price max_price,
   levels_[0].resize(num_levels);
   levels_[1].resize(num_levels);
 
-  for (size_t i = 0; i < num_levels; ++i) {
-    Price p(min_price_.price + i);
-    levels_[0][i].price = p;
-    levels_[1][i].price = p;
-  }
-
   // Hash table: capacity must be a power of 2 >= 2 * max_orders.
   // Linear probing wraps with a bitmask, which requires power-of-2 size.
   size_t ht_cap = 2;
@@ -188,13 +182,13 @@ void FastBook::modify(OrderId order_id, Quantity new_quantity) {
 Price FastBook::best_bid() const {
   if (!bitsets_[0].any())
     return Price{0};
-  return levels_[0][bitsets_[0].find_last_set_bit()].price;
+  return Price(bitsets_[0].find_last_set_bit() + min_price_.price);
 }
 
 Price FastBook::best_ask() const {
   if (!bitsets_[1].any())
     return Price{0};
-  return levels_[1][bitsets_[1].find_first_set_bit()].price;
+  return Price(bitsets_[1].find_first_set_bit() + min_price_.price);
 }
 
 Quantity FastBook::total_quantity_at_price(Price price, Side side) const {
@@ -237,24 +231,21 @@ void FastBook::match_orders_impl(Order &order) {
 
   std::vector<PriceLevel> &price_level_array = levels_[opp];
 
-  while (order.quantity.quantity > 0 && bitset.any()) {
+  size_t best_index;
+  if constexpr (side == Side::BUY)
+    best_index = bitset.find_first_set_bit();
+  else
+    best_index = bitset.find_last_set_bit();
 
-    size_t best_index;
-
-    if constexpr (side == Side::BUY) {
-      best_index = bitset.find_first_set_bit();
-    } else {
-      best_index = bitset.find_last_set_bit();
-    }
-
+  while (order.quantity.quantity > 0 && best_index != SIZE_MAX) {
     PriceLevel &best_level = price_level_array[best_index];
 
     if constexpr (type == OrderType::LIMIT) {
       if constexpr (side == Side::BUY) {
-        if (best_level.price > order.price)
+        if (best_index > order.price.price - min_price_.price)
           return;
       } else {
-        if (best_level.price < order.price)
+        if (best_index < order.price.price - min_price_.price)
           return;
       }
     }
@@ -271,7 +262,8 @@ void FastBook::match_orders_impl(Order &order) {
       order.quantity -= executed_qty;
 
       if (listener_) {
-        listener_->on_order_filled(order.id, current_order.id, best_level.price,
+        listener_->on_order_filled(order.id, current_order.id,
+                                   Price(best_index + min_price_.price),
                                    executed_qty);
       }
 
@@ -279,9 +271,13 @@ void FastBook::match_orders_impl(Order &order) {
                    executed_qty);
       current_order_index = next_order_index;
     }
+
+    if constexpr (side == Side::BUY)
+      best_index = bitset.find_next_set_bit(best_index);
+    else
+      best_index = bitset.find_prev_set_bit(best_index);
   }
 }
-
 
 template <Side side, OrderType type>
 void FastBook::add_order_impl(Order &order) {
