@@ -172,6 +172,7 @@ void RefBook::cancel(OrderId order_id) {
 
   for (auto it = orders_at_price.begin(); it != orders_at_price.end(); ++it) {
     if (it->id == order_id) {
+      Quantity cancelled_qty = it->quantity;
       orders_at_price.erase(it);
       order_id_to_location_.erase(entry);
       if (orders_at_price.empty()) {
@@ -179,7 +180,7 @@ void RefBook::cancel(OrderId order_id) {
       }
 
       if (listener_ != nullptr) {
-        listener_->on_order_canceled(order_id);
+        listener_->on_order_canceled(order_id, cancelled_qty, Quantity{0});
       }
 
       return;

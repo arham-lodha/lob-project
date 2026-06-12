@@ -30,8 +30,8 @@ Full detail in `docs/LOB_Technical_Specification.md` — read it before any subs
 ## Architecture (two planes)
 - **Hot path (C++):** matching engine + protocol codec. Latency-critical, single-writer,
   deterministic. Lives in `engine/`, `protocol/`.
-- **Control/research plane:** simulator + agents (Rust, `sim/`), ITCH ingestion (Rust,
-  `ingest/`), analysis (Python, `analysis/`), visualization (`viz/`).
+- **Control/research plane:** simulator + agents (Rust, `sim/`), ITCH ingestion (C++,
+  `engine/src/itch_ingest.cpp`), analysis (Python, `analysis/`), visualization (`viz/`).
 - The two planes communicate **only** over the binary wire protocol (OUCH-like inbound,
   ITCH-like outbound). The source of truth for message layouts is `protocol/`.
 
@@ -79,7 +79,8 @@ book state). Do not touch `RefBook`; it remains the ground truth.
 - Build:     `cmake --build engine/build`
 - Test:      `ctest --test-dir engine/build --output-on-failure`
 - Bench:     `./engine/build/lob_bench --benchmark_time_unit=ns`
-- Rust:      `cargo test` within `sim/` and `ingest/`
+- Rust:      `cargo test` within `sim/`
+- Ingest:    `./engine/build/itch_ingest <itch.bin> <SYMBOL> engine/tests/fixtures/`
 (Keep this section accurate as the project grows — Claude Code relies on it.)
 
 ## Domain glossary (quick)

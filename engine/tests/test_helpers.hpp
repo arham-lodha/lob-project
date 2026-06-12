@@ -34,13 +34,10 @@ public:
         }
     }
 
-    void on_order_canceled(OrderId id) override {
-        events.push_back(OrderCanceledEvent{id});
-        auto it = active_orders.find(id);
-        if (it != active_orders.end()) {
-            total_cancelled += it->second;
-            active_orders.erase(it);
-        }
+    void on_order_canceled(OrderId id, Quantity cancelled_qty, Quantity remaining_qty) override {
+        events.push_back(OrderCanceledEvent{id, cancelled_qty, remaining_qty});
+        total_cancelled += cancelled_qty;
+        active_orders.erase(id);
     }
 
     void on_order_modified(OrderId id, Quantity q) override {

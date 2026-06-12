@@ -9,7 +9,9 @@ struct OrderAddedEvent {
 };
 
 struct OrderCanceledEvent {
-  OrderId order_id;
+  OrderId  order_id;
+  Quantity cancelled_qty;
+  Quantity remaining_qty;
 };
 
 struct OrderModifiedEvent {
@@ -30,7 +32,7 @@ class EventListener {
 public:
   virtual ~EventListener() = default;
   virtual void on_order_added(const Order &order) = 0;
-  virtual void on_order_canceled(OrderId order_id) = 0;
+  virtual void on_order_canceled(OrderId order_id, Quantity cancelled_qty, Quantity remaining_qty) = 0;
   virtual void on_order_modified(OrderId order_id, Quantity new_quantity) = 0;
   virtual void on_order_filled(OrderId aggressor, OrderId passive, Price price,
                                Quantity quantity) = 0;

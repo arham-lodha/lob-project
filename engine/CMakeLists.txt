@@ -40,8 +40,9 @@ add_library(lob_engine
   src/ref_book.cpp
   src/hierarchical_bitset.cpp
   src/fast_book.cpp
+  src/codec.cpp
 )
-target_include_directories(lob_engine PUBLIC include/)
+target_include_directories(lob_engine PUBLIC include/ ../protocol)
 target_compile_features(lob_engine PUBLIC cxx_std_20)
 target_compile_options(lob_engine PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
@@ -53,6 +54,8 @@ add_executable(lob_tests
   tests/test_invariants.cpp
   tests/test_hierarchical_bitset.cpp
   tests/test_fast_book.cpp
+  tests/test_codec.cpp
+  tests/test_itch_replay.cpp
 )
 
 target_link_libraries(lob_tests PRIVATE
@@ -65,6 +68,23 @@ target_compile_options(lob_tests PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
 include(GoogleTest)
 gtest_discover_tests(lob_tests)
+
+# Standalone runner (M3 integration)
+add_executable(lob_runner
+  src/runner.cpp
+)
+target_link_libraries(lob_runner PRIVATE lob_engine)
+target_include_directories(lob_runner PRIVATE include/ ../protocol)
+target_compile_options(lob_runner PRIVATE -Wall -Wextra -Wpedantic -Werror)
+
+# ITCH 5.0 fixture generator
+add_executable(itch_ingest
+  src/itch_parser.cpp
+  src/ingest_book.cpp
+  src/itch_ingest.cpp
+)
+target_link_libraries(itch_ingest PRIVATE lob_engine)
+target_compile_options(itch_ingest PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
 # Benchmarks
 add_executable(lob_bench

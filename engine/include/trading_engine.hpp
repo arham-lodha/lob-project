@@ -22,8 +22,8 @@ public:
   void on_order_added(const Order &order) override {
     event_log_.push_back(OrderAddedEvent{order});
   }
-  void on_order_canceled(OrderId order_id) override {
-    event_log_.push_back(OrderCanceledEvent{order_id});
+  void on_order_canceled(OrderId order_id, Quantity cancelled_qty, Quantity remaining_qty) override {
+    event_log_.push_back(OrderCanceledEvent{order_id, cancelled_qty, remaining_qty});
   }
   void on_order_modified(OrderId order_id, Quantity new_quantity) override {
     event_log_.push_back(OrderModifiedEvent{order_id, new_quantity});

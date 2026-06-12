@@ -12,7 +12,7 @@ class NullListener : public EventListener {
 public:
     void on_order_added(const Order &) override {}
     void on_order_filled(OrderId, OrderId, Price, Quantity) override {}
-    void on_order_canceled(OrderId) override {}
+    void on_order_canceled(OrderId, Quantity, Quantity) override {}
     void on_order_modified(OrderId, Quantity) override {}
 };
 

@@ -147,10 +147,11 @@ void FastBook::cancel(OrderId order_id) {
   PriceLevel &level = levels_[side_index][price_index];
   HierarchicalBitset &bitset = bitsets_[side_index];
 
+  Quantity cancelled_qty = order.quantity;
   remove_order(order, level, index, bitset, order.quantity);
 
   if (listener_) {
-    listener_->on_order_canceled(order_id);
+    listener_->on_order_canceled(order_id, cancelled_qty, Quantity{0});
   }
 }
 
@@ -285,7 +286,7 @@ void FastBook::add_order_impl(Order &order) {
   if constexpr (type == OrderType::LIMIT) {
     if (order.price < min_price_ || order.price > max_price_) {
       if (listener_)
-        listener_->on_order_canceled(order.id);
+        listener_->on_order_canceled(order.id, order.quantity, Quantity{0});
 
       return;
     }

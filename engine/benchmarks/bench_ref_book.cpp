@@ -10,7 +10,7 @@ class NullListener : public lob::EventListener {
 public:
     void on_order_added(const lob::Order &) override {}
     void on_order_filled(lob::OrderId, lob::OrderId, lob::Price, lob::Quantity) override {}
-    void on_order_canceled(lob::OrderId) override {}
+    void on_order_canceled(lob::OrderId, lob::Quantity, lob::Quantity) override {}
     void on_order_modified(lob::OrderId, lob::Quantity) override {}
 };
 
